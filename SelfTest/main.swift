@@ -1,0 +1,303 @@
+import Foundation
+import PulseCore
+
+// Self-Test-Runner: verifiziert die Core-Logik ohne Xcode/iOS-SDK.
+
+var failures: [String] = []
+
+func check(_ condition: Bool, _ message: String) {
+    if condition {
+        print("  ✓ \(message)")
+    } else {
+        print("  ✗ FEHLER: \(message)")
+        failures.append(message)
+    }
+}
+
+func section(_ name: String) {
+    print("\n— \(name)")
+}
+
+func jsonDict(_ raw: String) -> [String: Any] {
+    guard let data = raw.data(using: .utf8),
+          let object = try? JSONSerialization.jsonObject(with: data),
+          let dict = object as? [String: Any] else {
+        failures.append("Fixture nicht parsebar")
+        return [:]
+    }
+    return dict
+}
+
+// MARK: PKCE (RFC-7636-Testvektor)
+
+section("PKCE")
+let pkce = PKCE(verifier: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
+check(pkce.challenge == "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", "SHA256-Challenge entspricht RFC-7636-Vektor")
+let freshPKCE = PKCE()
+check(freshPKCE.verifier.count >= 43, "Zufälliger Verifier hat ausreichende Länge")
+check(freshPKCE.verifier != PKCE().verifier, "Verifier sind zufällig")
+
+// MARK: OAuth-Konfiguration
+
+section("OAuth-Konfiguration")
+let config = GoogleOAuthConfig(clientID: "407408718192-abc123.apps.googleusercontent.com")
+check(config.reversedClientScheme == "com.googleusercontent.apps.407408718192-abc123", "Reversed-Client-Schema korrekt")
+check(config.redirectURI == "com.googleusercontent.apps.407408718192-abc123:/oauth2redirect", "Redirect-URI korrekt")
+check(!GoogleOAuthConfig(clientID: "kaputt").isValid, "Ungültige Client-ID wird erkannt")
+
+let auth = GoogleAuth(usesKeychain: false)
+if let url = auth.authorizationURL(config: config, pkce: pkce, state: "test-state") {
+    let absolute = url.absoluteString
+    check(absolute.hasPrefix("https://accounts.google.com/o/oauth2/v2/auth"), "Auth-URL zeigt auf Google")
+    check(absolute.contains("code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"), "Auth-URL enthält PKCE-Challenge")
+    check(absolute.contains("googlehealth.sleep.readonly"), "Auth-URL enthält Health-Scopes")
+    check(!absolute.contains("prompt="), "Kein prompt=consent (Google-Health-Empfehlung)")
+} else {
+    check(false, "Auth-URL konnte nicht gebaut werden")
+}
+let callback = URL(string: "com.googleusercontent.apps.x:/oauth2redirect?state=test-state&code=4/abc")!
+check(GoogleAuth.extractCode(from: callback, expectedState: "test-state") == "4/abc", "Code-Extraktion aus Callback")
+check(GoogleAuth.extractCode(from: callback, expectedState: "falsch") == nil, "State-Mismatch wird abgelehnt")
+check(GoogleAuth.formEncode(["a": "b c", "x": "y+z"]) == "a=b%20c&x=y%2Bz", "Form-Encoding percent-encodiert korrekt")
+
+// MARK: JSON-Extraktion (Google-Health-Formate)
+
+section("JSON-Extraktion")
+check(JSONExtract.snakeCase("heartRateVariability") == "heart_rate_variability", "camelCase → snake_case")
+
+let hrPoint = jsonDict(#"""
+{
+  "dataSource": { "device": { "displayName": "Fitbit Air" }, "platform": "FITBIT", "recordingMethod": "DERIVED" },
+  "heartRate": { "sampleTime": { "physicalTime": "2026-05-12T15:59:07Z" }, "beatsPerMinute": 72 }
+}
+"""#)
+let hrPayload = (hrPoint["heartRate"] as? [String: Any]) ?? [:]
+check(JSONExtract.firstDouble(in: hrPayload, keys: ["beatsPerMinute", "bpm"]) == 72, "Herzfrequenz-Wert extrahiert")
+check(JSONExtract.firstDate(in: hrPayload, keys: ["physicalTime"]) != nil, "Sample-Zeit extrahiert (verschachtelt)")
+
+let civil = JSONExtract.civilDateString(from: ["year": 2026, "month": 7, "day": 5])
+check(civil == "2026-07-05", "CivilDate-Objekt → yyyy-MM-dd")
+
+let sleepPoint = jsonDict(#"""
+{
+  "name": "users/me/dataTypes/sleep/dataPoints/abc",
+  "sleep": {
+    "type": "STAGES",
+    "interval": { "startTime": "2026-07-16T22:45:00Z", "endTime": "2026-07-17T06:30:00Z" },
+    "stages": [
+      { "type": "LIGHT", "startTime": "2026-07-16T22:45:00Z", "endTime": "2026-07-17T00:10:00Z" },
+      { "type": "DEEP", "startTime": "2026-07-17T00:10:00Z", "endTime": "2026-07-17T01:20:00Z" },
+      { "type": "REM", "startTime": "2026-07-17T01:20:00Z", "endTime": "2026-07-17T02:00:00Z" },
+      { "type": "AWAKE", "startTime": "2026-07-17T02:00:00Z", "endTime": "2026-07-17T02:08:00Z" },
+      { "type": "LIGHT", "startTime": "2026-07-17T02:08:00Z", "endTime": "2026-07-17T06:30:00Z" }
+    ],
+    "summary": { "minutesAsleep": 457, "minutesAwake": 8, "stagesSummary": [ { "type": "DEEP", "minutes": 70 } ] }
+  }
+}
+"""#)
+if let session = HealthAPIClient.parseSleep(sleepPoint) {
+    check(session.stages.count == 5, "5 Schlafphasen dekodiert")
+    check(session.minutesAsleep == 457, "minutesAsleep aus Summary übernommen")
+    check(session.stages[1].stage == .deep, "DEEP → .deep gemappt")
+    check(abs(session.minutesInBed - 465) < 0.01, "Zeit im Bett = 465 min")
+} else {
+    check(false, "Schlaf-Fixture konnte nicht dekodiert werden")
+}
+check(HealthAPIClient.parseSleep(["sleep": ["interval": [:]]]) == nil, "Unvollständige Schlafdaten → nil statt Absturz")
+
+// MARK: DayKey
+
+section("DayKey")
+check(DayKey.addDays("2026-07-18", -1) == "2026-07-17", "addDays über Tagesgrenze")
+check(DayKey.keys(from: "2026-02-27", to: "2026-03-02").count == 4, "Schaltjahr-Bereich (2026 kein Schaltjahr): 27.2.–2.3. = 4 Tage")
+check(DayKey.distance(from: "2026-07-01", to: "2026-07-18") == 17, "Distanz zwischen Keys")
+if let lateEvening = DayKey.date(from: "2026-07-17")?.addingTimeInterval(23 * 3600) {
+    check(DayKey.nightKey(for: lateEvening) == "2026-07-18", "23-Uhr-Sample zählt zur Nacht des Folgetags")
+}
+if let earlyMorning = DayKey.date(from: "2026-07-18")?.addingTimeInterval(5 * 3600) {
+    check(DayKey.nightKey(for: earlyMorning) == "2026-07-18", "5-Uhr-Sample zählt zum selben Tag")
+}
+
+// MARK: Statistik
+
+section("Statistik")
+check(Stats.percentile([1, 2, 3, 4, 5], 0.5) == 3, "Median")
+check(Stats.percentile([10], 0.05) == 10, "Perzentil mit einem Wert")
+check(abs(Stats.logistic(0) - 0.5) < 1e-9, "Logistic(0) = 0.5")
+if let baseline = Stats.baseline([60, 62, 64, 66, 68]) {
+    check(abs(baseline.mean - 64) < 1e-9, "Baseline-Mittelwert")
+    check(baseline.isReliable, "5 Werte gelten als belastbar")
+    check(abs(baseline.z(64)) < 1e-9, "z-Score am Mittelwert = 0")
+} else {
+    check(false, "Baseline nil trotz 5 Werten")
+}
+check(Stats.baseline([1, 2]) == nil, "Baseline braucht mindestens 3 Werte")
+
+// MARK: Strain-Engine
+
+section("Strain-Engine")
+check(StrainEngine.strain(fromRaw: 0) == 0, "Kein Load → Strain 0")
+let s60 = StrainEngine.strain(fromRaw: 60)
+let s300 = StrainEngine.strain(fromRaw: 300)
+let s900 = StrainEngine.strain(fromRaw: 900)
+let s5000 = StrainEngine.strain(fromRaw: 5000)
+check(s60 > 2 && s60 < 4, "Lockerer Tag ≈ 2–4 (ist \(String(format: "%.1f", s60)))")
+check(s300 > 9 && s300 < 12, "Solides Training ≈ 9–12 (ist \(String(format: "%.1f", s300)))")
+check(s900 > 16 && s900 < 19, "Harter Tag ≈ 16–19 (ist \(String(format: "%.1f", s900)))")
+check(s5000 < 21, "Skala bleibt unter 21 (ist \(String(format: "%.2f", s5000)))")
+check(s60 < s300 && s300 < s900 && s900 < s5000, "Strain wächst monoton mit Load")
+check(StrainEngine.zoneIndex(for: 0.1) == nil, "Unter Zone 0 → kein Load")
+check(StrainEngine.zoneIndex(for: 0.5) == 2, "50 % HRR → Zone 3 (Index 2)")
+check(StrainEngine.zoneIndex(for: 0.99) == 5, "99 % HRR → Maximal-Zone")
+
+// MARK: Demo-Daten + Engines Ende-zu-Ende
+
+section("Demo-Daten & Engines")
+let demoDays = DemoData.generate(daysBack: 120, seed: 42)
+check(demoDays.count == 120, "120 Demo-Tage erzeugt")
+let sortedKeys = demoDays.keys.sorted()
+
+let strainConfig = StrainConfig(age: 30)
+var strainByDay: [String: Double] = [:]
+for (key, record) in demoDays {
+    let result = StrainEngine.dayStrain(record: record, restingHR: record.restingHR, config: strainConfig)
+    strainByDay[key] = result.strain
+    if result.strain < 0 || result.strain > 21 {
+        check(false, "Strain außerhalb 0–21 an \(key): \(result.strain)")
+    }
+}
+check(strainByDay.values.allSatisfy { $0 >= 0 && $0 <= 21 }, "Alle Tages-Strains in 0–21")
+let maxStrain = strainByDay.values.max() ?? 0
+let avgStrain = strainByDay.values.reduce(0, +) / Double(strainByDay.count)
+check(maxStrain > 10, "Harte Tage erreichen Strain > 10 (max \(String(format: "%.1f", maxStrain)))")
+check(avgStrain > 3 && avgStrain < 16, "Durchschnitts-Strain plausibel (\(String(format: "%.1f", avgStrain)))")
+
+let sleepConfig = SleepEngineConfig()
+let sleepAnalyses = SleepEngine.analyze(days: demoDays, config: sleepConfig, strainByDay: strainByDay)
+check(sleepAnalyses.count == 120, "Schlafanalyse für alle Tage")
+for (key, analysis) in sleepAnalyses {
+    if analysis.needMinutes < 300 || analysis.needMinutes > 620 {
+        check(false, "Schlafbedarf außerhalb Plausibilität an \(key): \(analysis.needMinutes)")
+    }
+    if analysis.debtAfterMinutes < 0 || analysis.debtAfterMinutes > sleepConfig.maxDebtMinutes {
+        check(false, "Schlafschuld außerhalb Grenzen an \(key)")
+    }
+    if let consistency = analysis.consistency, consistency < 0 || consistency > 100 {
+        check(false, "Konsistenz außerhalb 0–100 an \(key)")
+    }
+    if analysis.performance < 0 || analysis.performance > 100 {
+        check(false, "Schlafperformance außerhalb 0–100 an \(key)")
+    }
+}
+check(true, "Bedarf/Schuld/Konsistenz/Performance in gültigen Bereichen")
+let withStages = sleepAnalyses.values.filter { !$0.stageMinutes.isEmpty }
+check(withStages.count == 120, "Alle Nächte haben Phasen-Minuten")
+
+var recoveryScores: [Int] = []
+for key in sortedKeys.suffix(60) {
+    guard let record = demoDays[key] else { continue }
+    let history = sortedKeys.filter { $0 < key }.compactMap { demoDays[$0] }
+    let result = RecoveryEngine.compute(
+        dateKey: key,
+        today: record,
+        history: history,
+        sleepPerformance: sleepAnalyses[key]?.performance
+    )
+    if let result {
+        recoveryScores.append(result.score)
+        if result.score < 1 || result.score > 99 {
+            check(false, "Recovery außerhalb 1–99 an \(key): \(result.score)")
+        }
+        let expectedZone: RecoveryZone = result.score >= 67 ? .green : (result.score >= 34 ? .yellow : .red)
+        if result.zone != expectedZone {
+            check(false, "Zonen-Mapping falsch an \(key)")
+        }
+        let weightSum = result.components.reduce(0) { $0 + $1.weight }
+        if abs(weightSum - 1) > 0.001 {
+            check(false, "Komponenten-Gewichte summieren nicht auf 1 an \(key)")
+        }
+    } else {
+        check(false, "Recovery nil trotz Daten an \(key)")
+    }
+}
+check(recoveryScores.count == 60, "Recovery für die letzten 60 Tage berechnet")
+let recoveryRange = (recoveryScores.min() ?? 0)...(recoveryScores.max() ?? 0)
+check(recoveryRange.upperBound - recoveryRange.lowerBound >= 20, "Recovery streut realistisch (\(recoveryRange))")
+
+if let lastKey = sortedKeys.last, let lastRecord = demoDays[lastKey] {
+    let history = sortedKeys.dropLast().compactMap { demoDays[$0] }
+    let statuses = HealthMonitor.evaluate(today: lastRecord, history: Array(history))
+    check(statuses.count == HealthMetricKind.allCases.count, "Health-Monitor liefert alle Metriken")
+    check(statuses.allSatisfy { $0.state != .noData }, "Demo-Daten: keine Metrik ohne Daten")
+    let rhrStatus = statuses.first { $0.kind == .restingHR }
+    check(rhrStatus?.lowerBound != nil && rhrStatus?.upperBound != nil, "Ruhepuls hat Baseline-Band")
+}
+
+// MARK: Workout-Strain
+
+section("Workout-Strain")
+var workoutStrainChecked = false
+for key in sortedKeys.suffix(28) {
+    guard let record = demoDays[key], let workout = record.workouts.first else { continue }
+    if let strain = StrainEngine.workoutStrain(workout: workout, daySamples: record.hrSamples, restingHR: record.restingHR, config: strainConfig) {
+        check(strain > 0 && strain <= 21, "Workout-Strain (\(workout.name), \(key)) in 0–21: \(String(format: "%.1f", strain))")
+        workoutStrainChecked = true
+        break
+    }
+}
+check(workoutStrainChecked, "Mindestens ein Workout-Strain berechnet")
+
+// MARK: Sync-Helfer
+
+section("Sync-Helfer")
+let base = DayKey.date(from: "2026-07-17")!
+let rawSamples = (0..<120).map { i in
+    SamplePoint(time: base.addingTimeInterval(Double(i) * 5), value: 60 + Double(i % 10))
+}
+let downsampled = SyncEngine.downsampleToMinutes(rawSamples)
+check(downsampled.count == 10, "600 s in 5-s-Auflösung → 10 Minuten-Buckets")
+check(downsampled.allSatisfy { $0.bpm >= 60 && $0.bpm <= 70 }, "Downsampling mittelt korrekt")
+
+let nightSamples = [
+    SamplePoint(time: DayKey.date(from: "2026-07-16")!.addingTimeInterval(23.5 * 3600), value: 55),
+    SamplePoint(time: DayKey.date(from: "2026-07-17")!.addingTimeInterval(3 * 3600), value: 65),
+]
+let grouped = SyncEngine.groupByNight(nightSamples)
+check(grouped["2026-07-17"]?.count == 2, "Nacht-Gruppierung fasst Abend + Morgen zusammen")
+
+// MARK: Store-Roundtrip
+
+section("MetricsStore")
+let tempDir = FileManager.default.temporaryDirectory
+    .appendingPathComponent("pulse-selftest-\(UUID().uuidString)")
+let store = MetricsStore(directory: tempDir)
+store.merge(Array(demoDays.values))
+check(store.days.count == 120, "Store enthält 120 Tage")
+check(store.save(), "Speichern erfolgreich")
+
+let reloaded = MetricsStore(directory: tempDir)
+check(reloaded.days.count == 120, "Reload liefert 120 Tage")
+if let lastKey = sortedKeys.last {
+    let original = store.days[lastKey]
+    let restored = reloaded.days[lastKey]
+    check(original?.hrvRmssd == restored?.hrvRmssd, "HRV übersteht Roundtrip")
+    check(original?.sleepSessions.count == restored?.sleepSessions.count, "Schlaf-Sessions überstehen Roundtrip")
+    check((restored?.hrSamples.count ?? 0) > 0, "HR-Samples des letzten Tages erhalten")
+}
+let historyCheck = reloaded.history(before: sortedKeys.last!, days: 30)
+check(historyCheck.count == 30, "history(before:) liefert 30 Tage")
+try? FileManager.default.removeItem(at: tempDir)
+
+// MARK: Ergebnis
+
+print("")
+if failures.isEmpty {
+    print("ALLE TESTS BESTANDEN ✅")
+    exit(0)
+} else {
+    print("\(failures.count) TEST(S) FEHLGESCHLAGEN ❌")
+    for failure in failures {
+        print("  – \(failure)")
+    }
+    exit(1)
+}
