@@ -79,14 +79,15 @@ fehlende Datentypen blockieren nie den Rest.
 ## Teil 2: App bauen & aufs iPhone bringen
 
 ```bash
-# 1. Xcode aus dem Mac App Store installieren, einmal starten, dann:
-sudo xcode-select -s /Applications/Xcode.app
-
-# 2. Projekt generieren und öffnen
-cd ~/Documents/03_tools/pulse
-xcodegen generate
 open Pulse.xcodeproj
 ```
+
+> ⚠️ Wichtig: **`Pulse.xcodeproj` öffnen** — nicht den Ordner oder `Package.swift`!
+> Öffnet man den Ordner, zeigt Xcode nur die SwiftPM-Schemes (`PulseCore`,
+> `pulse-selftest`); das sind macOS-Testziele und lassen sich nicht auf einem
+> iPhone installieren. Oben in der Toolbar muss das Scheme **Pulse** gewählt sein.
+> Das Projekt liegt fertig im Repo; nur nach Änderungen an `project.yml` muss es
+> mit `xcodegen generate` neu erzeugt werden.
 
 In Xcode: Target **Pulse** → *Signing & Capabilities* → dein persönliches Team wählen
 (kostenlose Apple-ID reicht) → iPhone anschließen → ▶︎ Run.
