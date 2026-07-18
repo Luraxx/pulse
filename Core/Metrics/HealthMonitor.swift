@@ -119,4 +119,78 @@ public enum HealthMonitor {
         case .bodyTemp: return record.bodyTemp
         }
     }
+
+    // MARK: - Warnung
+
+    /// Ist die Abweichung in die "schlechte" Richtung (Anzeichen für Infekt/
+    /// Übertraining)? HRV & SpO₂ sind unten kritisch, der Rest oben.
+    public static func isConcerning(_ status: HealthMetricStatus) -> Bool {
+        switch status.kind {
+        case .hrv, .spo2: return status.state == .below
+        case .restingHR, .respiratoryRate, .bodyTemp: return status.state == .above
+        }
+    }
+
+    static func directionWord(_ kind: HealthMetricKind) -> String {
+        switch kind {
+        case .hrv, .spo2: return "niedrig"
+        case .restingHR, .respiratoryRate, .bodyTemp: return "erhöht"
+        }
+    }
+}
+
+public struct HealthAlert: Sendable {
+    public let kinds: [HealthMetricKind]
+    public let message: String
+    /// true = deutliche Warnung, false = milder Hinweis.
+    public let isWarning: Bool
+}
+
+extension HealthMonitor {
+    /// Proaktive Warnung aus den letzten Tagen. Löst aus, wenn heute **mehrere**
+    /// Metriken auffällig sind ODER **eine** Metrik seit ≥2 Tagen — beides
+    /// klassische Frühzeichen für Infekt oder Übertraining.
+    public static func alert(records: [DayRecord], lookback: Int = 3) -> HealthAlert? {
+        // Genug Historie für belastbare Baselines nötig.
+        guard records.count >= 6 else { return nil }
+        let n = records.count
+
+        // Auffällige Metriken je Tag (letzte lookback+1 Tage).
+        var dailyConcerning: [Set<HealthMetricKind>] = []
+        let start = max(1, n - (lookback + 1))
+        for i in start..<n {
+            let statuses = evaluate(today: records[i], history: Array(records[0..<i]))
+            dailyConcerning.append(Set(statuses.filter(isConcerning).map(\.kind)))
+        }
+        guard let today = dailyConcerning.last, !today.isEmpty else { return nil }
+
+        // Regel 1: mehrere Metriken heute außerhalb der Baseline.
+        if today.count >= 2 {
+            let names = today.map(\.label).sorted().joined(separator: ", ")
+            return HealthAlert(
+                kinds: Array(today),
+                message: "\(today.count) Werte außerhalb deiner Baseline (\(names)) – möglicher Infekt oder Übertraining. Nimm es heute ruhiger.",
+                isWarning: true
+            )
+        }
+
+        // Regel 2: eine Metrik seit ≥2 Tagen ununterbrochen auffällig.
+        var streaked: [(kind: HealthMetricKind, days: Int)] = []
+        for kind in today {
+            var streak = 0
+            for set in dailyConcerning.reversed() {
+                if set.contains(kind) { streak += 1 } else { break }
+            }
+            if streak >= 2 { streaked.append((kind, streak)) }
+        }
+        if let worst = streaked.max(by: { $0.days < $1.days }) {
+            return HealthAlert(
+                kinds: [worst.kind],
+                message: "\(worst.kind.label) seit \(worst.days) Tagen \(directionWord(worst.kind)) – achte auf Erholung.",
+                isWarning: true
+            )
+        }
+
+        return nil
+    }
 }

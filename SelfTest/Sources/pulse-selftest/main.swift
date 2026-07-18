@@ -390,6 +390,79 @@ if let demoPulseAge = demoAgeResult.pulseAge {
     check(false, "Demo: Pulse-Alter trotz 30 Tagen nil")
 }
 
+// MARK: Journal & Korrelation
+
+section("Journal & Korrelation")
+var journalEntries: [String: JournalEntry] = [:]
+var journalRecovery: [String: Int] = [:]
+for i in 0..<12 {
+    let day = DayKey.addDays("2026-06-01", i)
+    let alcohol = i % 2 == 0
+    let factors: Set<JournalFactor> = alcohol ? [.alcohol] : []
+    journalEntries[day] = JournalEntry(date: day, factors: factors)
+    journalRecovery[DayKey.addDays("2026-06-01", i + 1)] = alcohol ? 45 : 75
+}
+let insights = JournalEngine.insights(entries: journalEntries, recoveryByDay: journalRecovery)
+if let alc = insights.first(where: { $0.factor == .alcohol }) {
+    check(alc.delta < -15, "Alkohol senkt Folge-Recovery deutlich (Δ \(Int(alc.delta)))")
+    check(alc.daysWith >= 3 && alc.daysWithout >= 3, "Beide Gruppen über Mindestfallzahl")
+} else {
+    check(false, "Alkohol-Insight fehlt trotz Daten")
+}
+check(!insights.contains { $0.factor == .sick }, "Faktor ohne Einträge liefert kein Insight")
+
+let tmpJournal = FileManager.default.temporaryDirectory.appendingPathComponent("pulse-journal-\(UUID().uuidString)")
+let jStore = JournalStore(directory: tmpJournal)
+jStore.toggle(.alcohol, on: "2026-07-18")
+check(jStore.isSet(.alcohol, on: "2026-07-18"), "Toggle setzt Faktor")
+check(jStore.save(), "Journal speichern erfolgreich")
+let jReload = JournalStore(directory: tmpJournal)
+check(jReload.isSet(.alcohol, on: "2026-07-18"), "Journal übersteht Roundtrip")
+try? FileManager.default.removeItem(at: tmpJournal)
+
+// MARK: Zubettgeh-Empfehlung
+
+section("Zubettgeh-Empfehlung")
+var wakeComps = DateComponents()
+wakeComps.year = 2026; wakeComps.month = 6; wakeComps.day = 10; wakeComps.hour = 6; wakeComps.minute = 45
+let wake645 = Calendar.current.date(from: wakeComps)!
+let bedRec = SleepEngine.bedtimeRecommendation(
+    currentDebtMinutes: 0, strainToday: 3, recentWakeTimes: [wake645, wake645, wake645]
+)
+check(abs(bedRec.projectedNeedMinutes - 456) < 5, "Ohne Schuld/Strain ≈ Basisbedarf (\(Int(bedRec.projectedNeedMinutes)))")
+if let bed = bedRec.recommendedBedtimeMinutes {
+    check(abs(bed - 1389) < 3, "Zubettgehzeit = Aufwachzeit − Bedarf (\(Int(bed)/60):\(String(format: "%02d", Int(bed)%60)))")
+} else {
+    check(false, "Keine Bedtime trotz Aufwachzeiten")
+}
+let bedRecHard = SleepEngine.bedtimeRecommendation(currentDebtMinutes: 120, strainToday: 16, recentWakeTimes: [wake645])
+check(bedRecHard.projectedNeedMinutes > bedRec.projectedNeedMinutes, "Schuld + harter Tag erhöhen den Bedarf")
+
+// MARK: Health-Warnung
+
+section("Health-Warnung")
+func healthRecord(_ key: String, rhr: Double, resp: Double) -> DayRecord {
+    var r = DayRecord(date: key)
+    r.restingHR = rhr; r.respiratoryRate = resp; r.hrvRmssd = 60; r.spo2Avg = 97; r.bodyTemp = 34
+    return r
+}
+var stableRecords = (0..<8).map { healthRecord(DayKey.addDays("2026-06-01", $0), rhr: 55, resp: 14) }
+check(HealthMonitor.alert(records: stableRecords) == nil, "Stabile Werte → keine Warnung")
+stableRecords.append(healthRecord(DayKey.addDays("2026-06-01", 8), rhr: 70, resp: 18))
+if let multi = HealthMonitor.alert(records: stableRecords) {
+    check(multi.kinds.count >= 2, "Mehrere auffällige Werte → Warnung mit ≥2 Metriken")
+} else {
+    check(false, "Warnung fehlt trotz zwei auffälliger Werte")
+}
+var streakRecords = (0..<7).map { healthRecord(DayKey.addDays("2026-07-01", $0), rhr: 55, resp: 14) }
+streakRecords.append(healthRecord(DayKey.addDays("2026-07-01", 7), rhr: 68, resp: 14))
+streakRecords.append(healthRecord(DayKey.addDays("2026-07-01", 8), rhr: 69, resp: 14))
+if let streak = HealthMonitor.alert(records: streakRecords) {
+    check(streak.kinds == [.restingHR], "Einzelne Metrik über 2 Tage → Streak-Warnung")
+} else {
+    check(false, "Streak-Warnung fehlt")
+}
+
 // MARK: Sync-Helfer
 
 section("Sync-Helfer")

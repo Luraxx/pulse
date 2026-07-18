@@ -45,7 +45,61 @@ public struct SleepAnalysis: Sendable {
     }
 }
 
+/// Empfehlung für die kommende Nacht.
+public struct BedtimeRecommendation: Sendable {
+    /// Projizierter Schlafbedarf heute Nacht (Minuten).
+    public let projectedNeedMinutes: Double
+    /// Gewohnte Aufwachzeit als Minuten seit Mitternacht (nil ohne Historie).
+    public let habitualWakeMinutes: Double?
+    /// Empfohlene Zubettgehzeit als Minuten seit Mitternacht (nil ohne Historie).
+    public let recommendedBedtimeMinutes: Double?
+    /// Aktuelle Schlafschuld (Minuten), auf der die Projektion basiert.
+    public let debtMinutes: Double
+}
+
 public enum SleepEngine {
+    /// Empfehlung für die kommende Nacht: projizierter Bedarf (aus Schlafschuld
+    /// und heutigem Strain) und – aus der gewohnten Aufwachzeit – die Uhrzeit,
+    /// zu der man dafür ins Bett sollte.
+    public static func bedtimeRecommendation(
+        currentDebtMinutes: Double,
+        strainToday: Double,
+        recentWakeTimes: [Date],
+        config: SleepEngineConfig = SleepEngineConfig()
+    ) -> BedtimeRecommendation {
+        let strainBoost = Stats.clamp((strainToday - 8) / 13, 0, 1) * config.strainNeedBoostMaxMinutes
+        var need = config.baselineNeedMinutes + currentDebtMinutes * config.debtRepayFraction + strainBoost
+        need = Stats.clamp(need, config.baselineNeedMinutes - 30, config.baselineNeedMinutes + 150)
+
+        guard !recentWakeTimes.isEmpty else {
+            return BedtimeRecommendation(
+                projectedNeedMinutes: need,
+                habitualWakeMinutes: nil,
+                recommendedBedtimeMinutes: nil,
+                debtMinutes: currentDebtMinutes
+            )
+        }
+
+        // Aufwachzeiten liegen morgens (kein Mitternachts-Übergang) → einfacher Mittelwert.
+        let wakeMinutes = recentWakeTimes.map { clockMinutes(of: $0) }
+        let habitualWake = Stats.mean(wakeMinutes)
+        let bedtime = ((habitualWake - need).truncatingRemainder(dividingBy: 1440) + 1440)
+            .truncatingRemainder(dividingBy: 1440)
+
+        return BedtimeRecommendation(
+            projectedNeedMinutes: need,
+            habitualWakeMinutes: habitualWake,
+            recommendedBedtimeMinutes: bedtime,
+            debtMinutes: currentDebtMinutes
+        )
+    }
+
+    /// Minuten seit Mitternacht (0…1439).
+    static func clockMinutes(of date: Date) -> Double {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return Double((c.hour ?? 0) * 60 + (c.minute ?? 0))
+    }
+
     /// Analysiert alle Tage chronologisch und führt Schlafschuld sowie
     /// Konsistenz-Historie über die gesamte Zeitreihe.
     /// `strainByDay` liefert den Tages-Strain (für den Bedarfs-Aufschlag der Folgenacht).
