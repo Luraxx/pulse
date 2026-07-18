@@ -1,5 +1,4 @@
-# Xcode / xcodegen
-Pulse.xcodeproj/
+# Xcode
 DerivedData/
 xcuserdata/
 *.xcuserstate
@@ -7,9 +6,6 @@ xcuserdata/
 # SwiftPM
 .build/
 .swiftpm/
-
-# App/Info.plist wird von xcodegen generiert
-App/Info.plist
 
 # macOS
 .DS_Store
