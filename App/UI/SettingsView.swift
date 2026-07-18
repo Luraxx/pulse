@@ -12,6 +12,7 @@ struct SettingsView: View {
             Form {
                 connectionSection
                 syncSection
+                ProfileFields(model: model)
                 calculationSection(model: $model)
                 demoSection
                 dataSection
@@ -102,14 +103,6 @@ struct SettingsView: View {
         Section {
             Stepper(value: model.baseSleepNeedMinutes, in: 360...600, step: 15) {
                 LabeledContent("Basis-Schlafbedarf", value: "\(Fmt.hm(model.wrappedValue.baseSleepNeedMinutes)) h")
-            }
-            Stepper(value: model.age, in: 14...90) {
-                LabeledContent("Alter", value: "\(model.wrappedValue.age)")
-            }
-            Picker("Geschlecht", selection: model.sex) {
-                ForEach(BiologicalSex.allCases, id: \.self) { sex in
-                    Text(sex.label).tag(sex)
-                }
             }
             if model.wrappedValue.maxHROverride > 0 {
                 Stepper(value: model.maxHROverride, in: 130...220, step: 1) {

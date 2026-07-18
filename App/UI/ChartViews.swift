@@ -24,6 +24,9 @@ func trendPoints(_ pairs: [(key: String, value: Double)]) -> [TrendPoint] {
 
 struct HRDayChart: View {
     let samples: [HRSample]
+    /// Max. Herzfrequenz für die Zonen-Bänder (Tanaka/Override).
+    var maxHR: Double = 190
+    @State private var selectedTime: Date?
 
     private var display: [HRSample] {
         guard samples.count > 240 else { return samples }
@@ -31,34 +34,107 @@ struct HRDayChart: View {
         return samples.enumerated().compactMap { $0.offset % step == 0 ? $0.element : nil }
     }
 
+    /// Nächstliegendes Sample zur Scrubber-Position.
+    private var selectedSample: HRSample? {
+        guard let selectedTime, !display.isEmpty else { return nil }
+        return display.min {
+            abs($0.t.timeIntervalSince(selectedTime)) < abs($1.t.timeIntervalSince(selectedTime))
+        }
+    }
+
+    /// Herzfrequenzzonen als Anteil der max. HF (untere Grenze in bpm).
+    private var zoneBands: [(name: String, lower: Double, upper: Double, color: Color)] {
+        [
+            ("Ruhe", 0, maxHR * 0.5, Theme.teal),
+            ("Leicht", maxHR * 0.5, maxHR * 0.6, Theme.green),
+            ("Moderat", maxHR * 0.6, maxHR * 0.7, Theme.yellow),
+            ("Fordernd", maxHR * 0.7, maxHR * 0.85, Theme.orange),
+            ("Hart", maxHR * 0.85, maxHR * 1.1, Theme.red),
+        ]
+    }
+
     var body: some View {
         let values = display.map(\.bpm)
-        let lower = (values.min() ?? 40) - 8
+        let lower = min((values.min() ?? 40) - 8, maxHR * 0.5)
         let upper = (values.max() ?? 180) + 12
-        Chart(display, id: \.t) { sample in
-            LineMark(
-                x: .value("Zeit", sample.t),
-                y: .value("Puls", sample.bpm)
-            )
-            .foregroundStyle(Theme.red.opacity(0.9))
-            .interpolationMethod(.monotone)
-            .lineStyle(StrokeStyle(lineWidth: 1.4))
-        }
-        .chartYScale(domain: lower...upper)
-        .chartXAxis {
-            AxisMarks(values: .stride(by: .hour, count: 6)) { _ in
-                AxisGridLine().foregroundStyle(Theme.stroke)
-                AxisValueLabel(format: .dateTime.hour())
-                    .foregroundStyle(Theme.textSecondary)
+
+        VStack(alignment: .leading, spacing: 8) {
+            // Ablese-Kopf (Scrubber-Wert)
+            HStack(spacing: 8) {
+                if let s = selectedSample {
+                    Text(Fmt.clock(s.t))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(Theme.textSecondary)
+                    Text("\(Int(s.bpm.rounded())) bpm")
+                        .font(.caption.monospacedDigit().weight(.bold))
+                        .foregroundStyle(Theme.red)
+                } else {
+                    Image(systemName: "hand.point.up.left")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.textSecondary)
+                    Text("Tippen oder ziehen zum Ablesen")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                Spacer()
             }
-        }
-        .chartYAxis {
-            AxisMarks(position: .trailing) { _ in
-                AxisGridLine().foregroundStyle(Theme.stroke)
-                AxisValueLabel().foregroundStyle(Theme.textSecondary)
+
+            Chart {
+                if let x0 = display.first?.t, let x1 = display.last?.t {
+                    ForEach(zoneBands, id: \.name) { zone in
+                        RectangleMark(
+                            xStart: .value("Start", x0),
+                            xEnd: .value("Ende", x1),
+                            yStart: .value("unten", zone.lower),
+                            yEnd: .value("oben", zone.upper)
+                        )
+                        .foregroundStyle(zone.color.opacity(0.09))
+                    }
+                }
+
+                ForEach(display, id: \.t) { sample in
+                    LineMark(
+                        x: .value("Zeit", sample.t),
+                        y: .value("Puls", sample.bpm)
+                    )
+                    .foregroundStyle(Theme.red.opacity(0.9))
+                    .interpolationMethod(.monotone)
+                    .lineStyle(StrokeStyle(lineWidth: 1.4))
+                }
+
+                if let s = selectedSample {
+                    RuleMark(x: .value("Zeit", s.t))
+                        .foregroundStyle(Theme.textSecondary.opacity(0.5))
+                        .lineStyle(StrokeStyle(lineWidth: 1))
+                    PointMark(
+                        x: .value("Zeit", s.t),
+                        y: .value("Puls", s.bpm)
+                    )
+                    .foregroundStyle(Theme.red)
+                    .symbolSize(70)
+                }
             }
+            .chartYScale(domain: lower...upper)
+            .chartXSelection(value: $selectedTime)
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .hour, count: 6)) { _ in
+                    AxisGridLine().foregroundStyle(Theme.stroke)
+                    AxisValueLabel(format: .dateTime.hour())
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .trailing) { _ in
+                    AxisGridLine().foregroundStyle(Theme.stroke)
+                    AxisValueLabel().foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .frame(height: 160)
+
+            Text("Farbbänder = Herzfrequenzzonen (Ruhe → Hart, in % deiner max. HF ≈ \(Int(maxHR.rounded())))")
+                .font(.caption2)
+                .foregroundStyle(Theme.textSecondary)
         }
-        .frame(height: 150)
     }
 }
 

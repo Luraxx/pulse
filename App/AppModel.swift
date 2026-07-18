@@ -18,6 +18,8 @@ final class AppModel {
         static let sleepNeed = "calc.sleepNeedMinutes"
         static let age = "calc.age"
         static let sex = "calc.sex"
+        static let heightCm = "profile.heightCm"
+        static let weightKg = "profile.weightKg"
         static let maxHR = "calc.maxHROverride"
         static let lastSync = "sync.lastSyncAt"
     }
@@ -54,6 +56,14 @@ final class AppModel {
             defaults.set(sex.rawValue, forKey: Keys.sex)
             recomputeAll()
         }
+    }
+    /// Körpergröße in cm (Profil; fließt aktuell in keine Score-Berechnung ein).
+    var heightCm: Double {
+        didSet { defaults.set(heightCm, forKey: Keys.heightCm) }
+    }
+    /// Gewicht in kg (Profil; VO₂max ist bereits pro kg normalisiert).
+    var weightKg: Double {
+        didSet { defaults.set(weightKg, forKey: Keys.weightKg) }
     }
     /// 0 = automatisch (Tanaka-Formel)
     var maxHROverride: Double {
@@ -107,6 +117,8 @@ final class AppModel {
         baseSleepNeedMinutes = (defaults.object(forKey: Keys.sleepNeed) as? Double) ?? 456
         age = (defaults.object(forKey: Keys.age) as? Int) ?? 30
         sex = (defaults.string(forKey: Keys.sex)).flatMap(BiologicalSex.init(rawValue:)) ?? .unspecified
+        heightCm = (defaults.object(forKey: Keys.heightCm) as? Double) ?? 175
+        weightKg = (defaults.object(forKey: Keys.weightKg) as? Double) ?? 75
         maxHROverride = (defaults.object(forKey: Keys.maxHR) as? Double) ?? 0
         lastSyncAt = (defaults.object(forKey: Keys.lastSync) as? Double).map(Date.init(timeIntervalSince1970:))
         selectedDayKey = DayKey.today()

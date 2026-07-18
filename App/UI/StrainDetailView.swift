@@ -84,7 +84,7 @@ struct StrainDetailView: View {
     private var hrCard: some View {
         if let record = model.selectedRecord, !record.hrSamples.isEmpty {
             SectionCard("Herzfrequenz-Tagesverlauf") {
-                HRDayChart(samples: record.hrSamples)
+                HRDayChart(samples: record.hrSamples, maxHR: model.strainConfig.maxHR)
             }
         }
     }
