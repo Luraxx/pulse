@@ -103,8 +103,8 @@ genügt Pull-to-Refresh. Ohne Google-Setup kannst du sofort den **Demo-Modus** s
 
 ```
 pulse/
-├── project.yml          # xcodegen-Definition (iOS-App-Target „Pulse“)
-├── Package.swift        # Dev-Manifest: Core auf macOS bauen + Self-Tests
+├── Pulse.xcodeproj      # fertig generiert – hier reinschauen zum Bauen
+├── project.yml          # xcodegen-Definition (nur bei Änderungen neu generieren)
 ├── App/                 # iOS-spezifisch: SwiftUI, OAuth-Browser-Flow, Assets
 │   ├── PulseApp.swift / AppModel.swift (zentrales @Observable-Modell)
 │   ├── Auth/WebAuthenticator.swift    (ASWebAuthenticationSession)
@@ -115,8 +115,10 @@ pulse/
 │   ├── Metrics/         # RecoveryEngine, StrainEngine, SleepEngine, HealthMonitor
 │   ├── API/             # GoogleAuth (PKCE, Keychain), HealthAPIClient, JSONExtract
 │   ├── Sync/SyncEngine.swift
-│   └── Demo/DemoData.swift
-└── SelfTest/main.swift  # Verifikations-Runner: swift run pulse-selftest
+│   ├── Demo/DemoData.swift
+│   └── Package.swift     # macht Core als Bibliothek für die Self-Tests nutzbar
+└── SelfTest/            # eigenes SwiftPM-Paket, getrennt vom App-Projekt
+    └── Sources/pulse-selftest/main.swift
 ```
 
 **Self-Tests ohne Xcode ausführen** (prüft PKCE gegen den RFC-7636-Vektor,
@@ -124,8 +126,13 @@ DTO-Dekodierung mit Google-Health-Fixtures, alle Metrik-Engines Ende-zu-Ende auf
 Demo-Daten, Store-Roundtrip):
 
 ```bash
-swift run pulse-selftest
+cd SelfTest && swift run pulse-selftest
 ```
+
+> Die Self-Tests liegen bewusst in einem **eigenen Unterpaket**. Dadurch gibt es
+> im Projekt-Wurzelverzeichnis keine `Package.swift` mehr – Xcode kann den Ordner
+> also nicht versehentlich als Swift-Package öffnen, und der Play-Button baut immer
+> die richtige App statt des Test-Runners.
 
 ---
 

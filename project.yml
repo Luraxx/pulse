@@ -19,9 +19,13 @@ targets:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
+    scheme:
+      testTargets: []
     sources:
       - path: App
       - path: Core
+        excludes:
+          - Package.swift
     info:
       path: App/Info.plist
       properties:
