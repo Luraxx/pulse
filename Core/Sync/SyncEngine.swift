@@ -119,7 +119,8 @@ public final class SyncEngine: @unchecked Sendable {
             note("Schlaf", Self.describe(error), error: true)
         }
 
-        // 3. HRV (nächtliche Samples → Mittelwert je Nacht)
+        // 3. HRV (nächtlicher RMSSD). Fitbit liefert HRV je nach Gerät als
+        // Sample-Strom ODER als Tagesaggregat — erst Samples, dann Tages-Fallback.
         report("HRV laden…")
         do {
             let samples = try await client.fetchSamples(
@@ -133,26 +134,43 @@ public final class SyncEngine: @unchecked Sendable {
             for (key, values) in grouped {
                 update(key) { $0.hrvRmssd = Stats.mean(values) }
             }
-            note("HRV", "\(samples.count) Samples, \(grouped.count) Nächte")
+            if grouped.isEmpty {
+                do {
+                    let daily = try await client.fetchDailyValues(
+                        type: "daily-heart-rate-variability",
+                        payloadKey: "dailyHeartRateVariability",
+                        valueKeys: ["rmssdMilliseconds", "rmssd", "milliseconds", "value"],
+                        start: windowStart,
+                        end: windowEnd
+                    )
+                    for (key, value) in daily {
+                        update(key) { $0.hrvRmssd = value }
+                    }
+                    note("HRV", "\(daily.count) Tage (Tagesaggregat)")
+                } catch {
+                    note("HRV", "0 Samples; Tages-HRV nicht verfügbar: \(Self.describe(error))", error: true)
+                }
+            } else {
+                note("HRV", "\(samples.count) Samples, \(grouped.count) Nächte")
+            }
         } catch {
             note("HRV", Self.describe(error), error: true)
         }
 
-        // 4. Atemfrequenz
+        // 4. Atemfrequenz (Google-Health-Tagesaggregat aus dem Schlaf)
         report("Atemfrequenz laden…")
         do {
-            let samples = try await client.fetchSamples(
-                type: "respiratory-rate",
-                payloadKey: "respiratoryRate",
-                valueKeys: ["breathsPerMinute", "rate", "value", "fullSleepSummary"],
-                start: windowStart.addingTimeInterval(-12 * 3600),
+            let values = try await client.fetchDailyValues(
+                type: "daily-respiratory-rate",
+                payloadKey: "dailyRespiratoryRate",
+                valueKeys: ["breathsPerMinute", "rate", "value"],
+                start: windowStart,
                 end: windowEnd
             )
-            let grouped = Self.groupByNight(samples)
-            for (key, values) in grouped {
-                update(key) { $0.respiratoryRate = Stats.mean(values) }
+            for (key, value) in values {
+                update(key) { $0.respiratoryRate = value }
             }
-            note("Atemfrequenz", "\(grouped.count) Nächte")
+            note("Atemfrequenz", "\(values.count) Tage")
         } catch {
             note("Atemfrequenz", Self.describe(error), error: true)
         }
@@ -182,21 +200,20 @@ public final class SyncEngine: @unchecked Sendable {
             note("SpO₂", Self.describe(error), error: true)
         }
 
-        // 6. Temperatur (Haut/Körper, nächtlicher Wert)
+        // 6. Temperatur (nächtliche Hauttemperatur-Ableitung, Tageswert)
         report("Temperatur laden…")
         do {
-            let samples = try await client.fetchSamples(
-                type: "body-temperature",
-                payloadKey: "bodyTemperature",
-                valueKeys: ["celsius", "degreesCelsius", "temperature", "value", "nightlyRelative"],
-                start: windowStart.addingTimeInterval(-12 * 3600),
+            let values = try await client.fetchDailyValues(
+                type: "daily-sleep-temperature-derivations",
+                payloadKey: "dailySleepTemperatureDerivations",
+                valueKeys: ["nightlyTemperatureCelsius", "baselineTemperatureCelsius", "celsius", "value"],
+                start: windowStart,
                 end: windowEnd
             )
-            let grouped = Self.groupByNight(samples)
-            for (key, values) in grouped {
-                update(key) { $0.bodyTemp = Stats.mean(values) }
+            for (key, value) in values {
+                update(key) { $0.bodyTemp = value }
             }
-            note("Temperatur", "\(grouped.count) Nächte")
+            note("Temperatur", "\(values.count) Tage")
         } catch {
             note("Temperatur", Self.describe(error), error: true)
         }
@@ -205,8 +222,8 @@ public final class SyncEngine: @unchecked Sendable {
         report("Ruhepuls laden…")
         do {
             let values = try await client.fetchDailyValues(
-                type: "resting-heart-rate",
-                payloadKey: "restingHeartRate",
+                type: "daily-resting-heart-rate",
+                payloadKey: "dailyRestingHeartRate",
                 valueKeys: ["beatsPerMinute", "bpm", "value"],
                 start: windowStart,
                 end: windowEnd
@@ -217,6 +234,24 @@ public final class SyncEngine: @unchecked Sendable {
             note("Ruhepuls", "\(values.count) Tage")
         } catch {
             note("Ruhepuls", "\(Self.describe(error)) – Fallback über Nacht-HF aktiv", error: true)
+        }
+
+        // 7b. VO₂max / Cardio-Fitness (Tagesdatentyp, ml/kg/min)
+        report("VO₂max laden…")
+        do {
+            let values = try await client.fetchDailyValues(
+                type: "daily-vo2-max",
+                payloadKey: "dailyVo2Max",
+                valueKeys: ["vo2Max", "vo2max", "cardioFitnessScore", "value"],
+                start: windowStart,
+                end: windowEnd
+            )
+            for (key, value) in values {
+                update(key) { $0.vo2max = value }
+            }
+            note("VO₂max", "\(values.count) Tage")
+        } catch {
+            note("VO₂max", "\(Self.describe(error)) – Fallback über HF-Ratio aktiv", error: true)
         }
 
         // 8. Schritte (Intervall-Samples → Tagessumme)

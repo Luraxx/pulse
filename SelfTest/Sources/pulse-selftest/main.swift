@@ -105,6 +105,28 @@ if let session = HealthAPIClient.parseSleep(sleepPoint) {
 }
 check(HealthAPIClient.parseSleep(["sleep": ["interval": [:]]]) == nil, "Unvollständige Schlafdaten → nil statt Absturz")
 
+// Exercise nutzt "sessionTimeInterval" (nicht "interval" wie Schlaf).
+let exercisePoint = jsonDict(#"""
+{
+  "name": "users/me/dataTypes/exercise/dataPoints/xyz",
+  "exercise": {
+    "exerciseType": "RUNNING",
+    "activityName": "Laufen",
+    "sessionTimeInterval": { "startTime": "2026-07-17T17:30:00Z", "endTime": "2026-07-17T18:15:00Z" },
+    "averageHeartRate": 148,
+    "calories": 430
+  }
+}
+"""#)
+if let workout = HealthAPIClient.parseExercise(exercisePoint) {
+    check(workout.name == "Laufen", "Workout-Name aus activityName")
+    check(abs(workout.durationMinutes - 45) < 0.01, "Workout-Dauer aus sessionTimeInterval = 45 min")
+    check(workout.averageHR == 148, "Ø-Puls des Workouts dekodiert")
+} else {
+    check(false, "Exercise-Fixture mit sessionTimeInterval konnte nicht dekodiert werden")
+}
+check(HealthAPIClient.parseExercise(["exercise": ["sessionTimeInterval": [:]]]) == nil, "Unvollständiges Workout → nil statt Absturz")
+
 // MARK: DayKey
 
 section("DayKey")
@@ -246,6 +268,108 @@ for key in sortedKeys.suffix(28) {
     }
 }
 check(workoutStrainChecked, "Mindestens ein Workout-Strain berechnet")
+
+// MARK: Alters-Engine (Pulse Alter)
+
+section("Alters-Normen")
+// Inversion trifft die Stützstellen wieder.
+check(abs(AgeNorms.fitnessAge(vo2max: 48.0, sex: .male) - 25) < 1.0, "VO₂max 48 (m) → Fitness-Alter ≈ 25")
+check(abs(AgeNorms.fitnessAge(vo2max: 40.3, sex: .male) - 45) < 1.0, "VO₂max 40,3 (m) → Fitness-Alter ≈ 45")
+check(abs(AgeNorms.fitnessAge(vo2max: 30.9, sex: .female) - 45) < 1.0, "VO₂max 30,9 (w) → Fitness-Alter ≈ 45")
+// Monotonie: fitter ⇒ jünger.
+check(AgeNorms.fitnessAge(vo2max: 55, sex: .male) < AgeNorms.fitnessAge(vo2max: 35, sex: .male), "Höherer VO₂max ⇒ jüngeres Fitness-Alter")
+let fitVeryHigh = AgeNorms.fitnessAge(vo2max: 65, sex: .male)
+check(fitVeryHigh >= 20 && fitVeryHigh <= 25, "Sehr hoher VO₂max wird auf ≥20 geklemmt (\(String(format: "%.0f", fitVeryHigh)))")
+check(abs(AgeNorms.hrvAge(rmssd: 46) - 35) < 1.5, "RMSSD 46 → HRV-Alter ≈ 35")
+check(AgeNorms.hrvAge(rmssd: 60) < AgeNorms.hrvAge(rmssd: 25), "Höhere HRV ⇒ jüngeres HRV-Alter")
+// Geschlecht verschiebt die Kurve.
+check(AgeNorms.vo2max(age: 40, sex: .male) > AgeNorms.vo2max(age: 40, sex: .female), "VO₂max-Norm: Männer > Frauen bei gleichem Alter")
+
+section("Alters-Engine")
+let fitInputs = AgeInputs(
+    chronoAge: 30, sex: .male,
+    vo2maxValues: [52, 51, 53, 52, 54],
+    rmssdValues: Array(repeating: 57, count: 10),
+    restingHRValues: Array(repeating: 51, count: 10),
+    sleepPerformances: [88, 90, 87, 91],
+    stepsValues: [12000, 11500, 12500],
+    validDayCount: 30
+)
+let fitResult = AgeEngine.compute(dateKey: "2026-07-18", inputs: fitInputs)
+if let pulseAge = fitResult.pulseAge, let delta = fitResult.deltaYears {
+    check(pulseAge >= 15 && pulseAge <= 95, "Fitter 30-Jähriger: Pulse-Alter in Grenzen (\(String(format: "%.0f", pulseAge)))")
+    check(delta < 0, "Fitter Mensch ist biologisch jünger (Δ \(String(format: "%.0f", delta)))")
+    check(!fitResult.vo2maxEstimated, "Gemessener VO₂max wird bevorzugt (nicht geschätzt)")
+} else {
+    check(false, "Pulse-Alter trotz voller Daten nil")
+}
+
+let unfitInputs = AgeInputs(
+    chronoAge: 30, sex: .male,
+    vo2maxValues: Array(repeating: 30, count: 5),
+    rmssdValues: Array(repeating: 25, count: 10),
+    restingHRValues: Array(repeating: 72, count: 10),
+    sleepPerformances: [60, 63, 58],
+    stepsValues: [3000, 2800, 3200],
+    validDayCount: 30
+)
+let unfitResult = AgeEngine.compute(dateKey: "2026-07-18", inputs: unfitInputs)
+check((unfitResult.deltaYears ?? 0) > 0, "Unfitter Mensch ist biologisch älter (Δ \(String(format: "%.0f", unfitResult.deltaYears ?? 0)))")
+check((fitResult.pulseAge ?? 0) < (unfitResult.pulseAge ?? 0), "Fit < Unfit im Pulse-Alter")
+
+// Kalibrierungs-Gate: zu wenig Tage ⇒ kein Wert.
+let earlyInputs = AgeInputs(
+    chronoAge: 30, sex: .male,
+    vo2maxValues: [50, 51, 52],
+    rmssdValues: Array(repeating: 55, count: 8),
+    restingHRValues: Array(repeating: 52, count: 8),
+    validDayCount: 10
+)
+let earlyResult = AgeEngine.compute(dateKey: "2026-07-18", inputs: earlyInputs)
+check(earlyResult.pulseAge == nil, "Unter 14 gültigen Tagen: noch kein Pulse-Alter")
+check(earlyResult.calibrating, "Frühe Phase ist als kalibrierend markiert")
+check(earlyResult.calibrationHave == 10, "Kalibrierungsfortschritt zählt gültige Tage")
+
+// Doppelzählungs-Schutz: ohne gemessenen VO₂max wird geschätzt UND der
+// Ruhepuls fließt dann NICHT zusätzlich als Korrektur ein.
+let estimatedInputs = AgeInputs(
+    chronoAge: 40, sex: .male,
+    vo2maxValues: [],
+    rmssdValues: Array(repeating: 40, count: 10),
+    restingHRValues: Array(repeating: 58, count: 12),
+    observedMaxHR: 185,
+    sleepPerformances: [80, 82],
+    stepsValues: [9000, 8500],
+    validDayCount: 30
+)
+let estimatedResult = AgeEngine.compute(dateKey: "2026-07-18", inputs: estimatedInputs)
+check(estimatedResult.vo2maxEstimated, "Ohne Messwert: VO₂max wird über HF-Ratio geschätzt")
+check(estimatedResult.vo2max != nil, "Geschätzter VO₂max ist vorhanden")
+check(!estimatedResult.components.contains { $0.key == "rhr" }, "Bei geschätztem VO₂max keine separate Ruhepuls-Korrektur (kein Doppelzählen)")
+check(estimatedResult.components.contains { $0.key == "fitness" }, "Fitness-Komponente auch im Schätz-Pfad vorhanden")
+
+// Ende-zu-Ende auf Demo-Daten (gemessener VO₂max ~50).
+let ageWindow = sortedKeys.suffix(30).compactMap { demoDays[$0] }
+let ageSleepPerf = sortedKeys.suffix(30).compactMap { key -> Double? in
+    guard let a = sleepAnalyses[key], a.hasData else { return nil }
+    return a.performance
+}
+let demoAgeInputs = AgeInputs(
+    chronoAge: 30, sex: .male,
+    vo2maxValues: ageWindow.compactMap { $0.vo2max },
+    rmssdValues: ageWindow.compactMap { $0.hrvRmssd },
+    restingHRValues: ageWindow.compactMap { $0.restingHR },
+    sleepPerformances: ageSleepPerf,
+    stepsValues: ageWindow.compactMap { $0.steps.map(Double.init) },
+    validDayCount: ageWindow.filter { $0.hrvRmssd != nil || $0.restingHR != nil }.count
+)
+let demoAgeResult = AgeEngine.compute(dateKey: sortedKeys.last!, inputs: demoAgeInputs)
+check(demoAgeResult.vo2max != nil, "Demo: VO₂max vorhanden")
+if let demoPulseAge = demoAgeResult.pulseAge {
+    check(demoPulseAge >= 15 && demoPulseAge <= 45, "Demo: Pulse-Alter plausibel (\(String(format: "%.0f", demoPulseAge)))")
+} else {
+    check(false, "Demo: Pulse-Alter trotz 30 Tagen nil")
+}
 
 // MARK: Sync-Helfer
 

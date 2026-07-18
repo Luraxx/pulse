@@ -106,6 +106,11 @@ struct SettingsView: View {
             Stepper(value: model.age, in: 14...90) {
                 LabeledContent("Alter", value: "\(model.wrappedValue.age)")
             }
+            Picker("Geschlecht", selection: model.sex) {
+                ForEach(BiologicalSex.allCases, id: \.self) { sex in
+                    Text(sex.label).tag(sex)
+                }
+            }
             if model.wrappedValue.maxHROverride > 0 {
                 Stepper(value: model.maxHROverride, in: 130...220, step: 1) {
                     LabeledContent("Max. Herzfrequenz", value: "\(Int(model.wrappedValue.maxHROverride))")
@@ -122,7 +127,7 @@ struct SettingsView: View {
         } header: {
             Text("Berechnung")
         } footer: {
-            Text("Max. HF automatisch = Tanaka-Formel (208 − 0,7 × Alter). Alle Scores werden bei Änderungen sofort neu berechnet.")
+            Text("Max. HF automatisch = Tanaka-Formel (208 − 0,7 × Alter). Alter und Geschlecht bestimmen zudem die Normkurven fürs Pulse Alter. Alle Scores werden bei Änderungen sofort neu berechnet.")
         }
     }
 

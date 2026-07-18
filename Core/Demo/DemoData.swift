@@ -61,6 +61,9 @@ public enum DemoData {
             record.spo2Avg = spo2
             record.spo2Min = spo2 - Double.random(in: 1.2...2.8, using: &rng)
             record.bodyTemp = 33.9 + Double.random(in: -0.25...0.25, using: &rng) + (previousAlcohol ? 0.4 : 0)
+            // Gemessene VO₂max (Cardio-Fitness): solide aktiv (~mittleres 20er
+            // Fitness-Alter für die 30-jährige Demo-Person), mit saisonaler Drift.
+            record.vo2max = Stats.clamp(46.0 + slowWave * 0.3 + Double.random(in: -0.5...0.5, using: &rng), 36, 52)
 
             // Schlaf
             let sleepImpact = previousAlcohol ? -35.0 : 0.0

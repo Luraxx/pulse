@@ -10,6 +10,8 @@ Pulse ist eine private iOS-App, die die Daten deiner **Google Fitbit Air** über
 - **Schlafbedarf, Schlafschuld, Performance, Konsistenz, Effizienz** + Phasen-Hypnogramm
 - **Health-Monitor**: Ruhepuls, HRV, Atemfrequenz, SpO₂ und Hauttemperatur im
   persönlichen Baseline-Band (± 1,65 SD) mit Warnstatus
+- **Pulse Alter** — dein biologisches Alter aus VO₂max, HRV, Ruhepuls, Schlaf und
+  Aktivität, gegen geschlechts- und altersspezifische Normwerte (kalibriert ~30 Tage)
 - **Trends** über 7/30/90 Tage (Recovery vs. Strain, Schlaf, HRV, Ruhepuls)
 
 Alle Daten bleiben **lokal auf dem iPhone** (JSON in Application Support). Kein Server,
@@ -163,6 +165,36 @@ Ohne Intraday-HF greift ein Fallback über Workout-Durchschnittspuls + Schritte.
 Schuld akkumuliert bei Unterschreitung (Kappung 5 h), Überschlafen baut ab.
 Konsistenz = Abweichung der Zubettgeh-/Aufwachzeiten vs. letzte 4 Nächte.
 
+### Pulse Alter (biologisches Alter)
+
+Der Score schätzt, wie „alt" dein Körper physiologisch wirkt — er kann unter oder
+über deinem echten Alter liegen. Aufbau ([AgeEngine.swift](Core/Metrics/AgeEngine.swift)):
+
+1. **Rückgrat: VO₂max → Fitness-Alter.** VO₂max ist der stärkste Einzelprädiktor
+   der Gesamtmortalität (Mandsager, *JAMA Netw Open* 2018, 122 007 Personen; jede
+   1-MET-Steigerung ≈ 13–15 % geringeres Sterberisiko). Pulse nutzt bevorzugt den
+   von Google Health **gemessenen** VO₂max (`daily-vo2-max`). Fehlt er, wird er über
+   die **Herzfrequenz-Ratio-Methode** geschätzt (Uth et al. 2004:
+   `VO₂max ≈ 15,3 × HRmax/HRruhe`, HRmax aus real beobachtetem Maxpuls oder
+   Nes/HUNT `211 − 0,64 × Alter`). Der Messwert wird über die **FRIEND**-Normwerte
+   (50. Perzentil, geschlechtsspezifisch; Kaminsky, *Mayo Clin Proc* 2015) in ein
+   Alter übersetzt.
+2. **HRV → HRV-Alter.** Nächtlicher RMSSD gegen alterstypische Referenzwerte.
+3. Beide Äquivalenzalter werden gewichtet gemittelt (**VO₂max 0,7 / HRV 0,3**).
+4. **Gedeckelte Korrekturen** aus Ruhepuls (+10 S/min ≈ HR 1,09 Mortalität, Zhang
+   *CMAJ* 2016), Schlafperformance und Aktivität (zusammen max. ± 5 Jahre).
+
+Gegen Doppelzählung: Der Ruhepuls-Zuschlag entfällt, wenn VO₂max **geschätzt**
+wurde — dann steckt der Ruhepuls schon im Rückgrat. Der Score erscheint erst nach
+**~30 Tagen** mit Messwerten (provisorisch ab 14), vorher „kalibriert noch". Alter
+und Geschlecht (Einstellung unter „Mehr") bestimmen die Normkurven. **Orientierung,
+kein medizinischer Befund.**
+
+Quellen: [Mandsager 2018](https://jamanetwork.com/journals/jamanetworkopen/fullarticle/2707428) ·
+[FRIEND/Kaminsky 2015](https://pmc.ncbi.nlm.nih.gov/articles/PMC4919021/) ·
+[Uth 2004](https://pubmed.ncbi.nlm.nih.gov/14624296/) ·
+[Zhang 2016](https://www.cmaj.ca/content/188/3/E53)
+
 ---
 
 ## Datentypen-Mapping (Google Health API v4)
@@ -170,14 +202,15 @@ Konsistenz = Abweichung der Zubettgeh-/Aufwachzeiten vs. letzte 4 Nächte.
 | Metrik | dataType (URL) | Payload-Key | Anmerkung |
 | --- | --- | --- | --- |
 | Herzfrequenz intraday | `heart-rate` | `heartRate` | ~5-s-Auflösung, App reduziert auf 1 min |
-| HRV | `heart-rate-variability` | `heartRateVariability` | nächtl. Mittel aus Samples |
-| Schlaf | `sleep` | `sleep` | Sessions mit `stages[]` + `summary` |
-| Atemfrequenz | `respiratory-rate` | `respiratoryRate` | nächtlicher Wert |
+| HRV | `heart-rate-variability` | `heartRateVariability` | nächtl. Mittel aus Samples; Fallback `daily-heart-rate-variability` |
+| Schlaf | `sleep` | `sleep` | Sessions mit `stages[]` + `summary`, Zeit in `interval` |
+| Atemfrequenz | `daily-respiratory-rate` | `dailyRespiratoryRate` | Tageswert (`date`-Filter), `breathsPerMinute` |
 | SpO₂ | `oxygen-saturation` | `oxygenSaturation` | Ø + Minimum je Nacht |
-| Temperatur | `body-temperature` | `bodyTemperature` | Verfügbarkeit je Gerät unterschiedlich |
-| Ruhepuls | `resting-heart-rate` | `restingHeartRate` | Fallback: 5. Perzentil der Nacht-HF |
+| Temperatur | `daily-sleep-temperature-derivations` | `dailySleepTemperatureDerivations` | nächtl. Hauttemperatur (`nightlyTemperatureCelsius`) |
+| Ruhepuls | `daily-resting-heart-rate` | `dailyRestingHeartRate` | Tageswert; Fallback: 5. Perzentil der Nacht-HF |
+| VO₂max | `daily-vo2-max` | `dailyVo2Max` | Cardio-Fitness (ml/kg/min); Fallback: HF-Ratio-Schätzung |
 | Schritte | `steps` | `steps` | Intervall-Samples → Tagessumme |
-| Workouts | `exercise` | `exercise` | Sessions inkl. Ø-Puls/Kalorien |
+| Workouts | `exercise` | `exercise` | Sessions inkl. Ø-Puls/Kalorien; Zeit in `sessionTimeInterval` |
 
 Der Client probiert je Typ automatisch `…:reconcile` → `list` (Bereichsfilter) →
 `list` (nur Startfilter) und merkt sich die funktionierende Variante. Sollte Google

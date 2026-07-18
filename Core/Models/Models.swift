@@ -141,14 +141,41 @@ public struct Workout: Codable, Hashable, Sendable {
 
 // MARK: - Profil
 
+/// Biologisches Geschlecht — nötig, weil die Alters-Normwerte (VO₂max, HRV,
+/// Ruhepuls) geschlechtsspezifisch sind. "unspecified" nutzt gemittelte Kurven.
+public enum BiologicalSex: String, Codable, CaseIterable, Sendable {
+    case male
+    case female
+    case unspecified
+
+    /// Mappt Google-/Fitbit-Enums ("MALE"/"FEMALE", "male"…).
+    public init(apiValue: String?) {
+        switch apiValue?.uppercased() {
+        case "MALE", "M": self = .male
+        case "FEMALE", "F": self = .female
+        default: self = .unspecified
+        }
+    }
+
+    public var label: String {
+        switch self {
+        case .male: return "Männlich"
+        case .female: return "Weiblich"
+        case .unspecified: return "Keine Angabe"
+        }
+    }
+}
+
 public struct UserProfile: Codable, Sendable {
     public var displayName: String?
     /// Geburtstag als "yyyy-MM-dd", falls die API ihn liefert.
     public var birthday: String?
+    public var sex: BiologicalSex
 
-    public init(displayName: String? = nil, birthday: String? = nil) {
+    public init(displayName: String? = nil, birthday: String? = nil, sex: BiologicalSex = .unspecified) {
         self.displayName = displayName
         self.birthday = birthday
+        self.sex = sex
     }
 
     public var age: Int? {
@@ -172,6 +199,9 @@ public struct DayRecord: Codable, Sendable {
     public var spo2Avg: Double?           // %
     public var spo2Min: Double?           // %
     public var bodyTemp: Double?          // °C (Haut-/Körpertemperatur der Nacht)
+    /// Cardio-Fitness / VO₂max (ml/kg/min) — von Google Health gemessener
+    /// Tageswert (daily-vo2-max), falls verfügbar.
+    public var vo2max: Double?
 
     // Aktivität
     public var steps: Int?

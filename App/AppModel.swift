@@ -17,6 +17,7 @@ final class AppModel {
         static let hrDaysBack = "sync.hrDaysBack"
         static let sleepNeed = "calc.sleepNeedMinutes"
         static let age = "calc.age"
+        static let sex = "calc.sex"
         static let maxHR = "calc.maxHROverride"
         static let lastSync = "sync.lastSyncAt"
     }
@@ -45,6 +46,12 @@ final class AppModel {
     var age: Int {
         didSet {
             defaults.set(age, forKey: Keys.age)
+            recomputeAll()
+        }
+    }
+    var sex: BiologicalSex {
+        didSet {
+            defaults.set(sex.rawValue, forKey: Keys.sex)
             recomputeAll()
         }
     }
@@ -82,6 +89,7 @@ final class AppModel {
     private(set) var strainResults: [String: StrainResult] = [:]
     private(set) var sleepAnalyses: [String: SleepAnalysis] = [:]
     private(set) var recoveryResults: [String: RecoveryResult] = [:]
+    private(set) var ageResults: [String: AgeResult] = [:]
 
     private let defaults = UserDefaults.standard
 
@@ -98,6 +106,7 @@ final class AppModel {
         hrDaysBack = (defaults.object(forKey: Keys.hrDaysBack) as? Int) ?? 14
         baseSleepNeedMinutes = (defaults.object(forKey: Keys.sleepNeed) as? Double) ?? 456
         age = (defaults.object(forKey: Keys.age) as? Int) ?? 30
+        sex = (defaults.string(forKey: Keys.sex)).flatMap(BiologicalSex.init(rawValue:)) ?? .unspecified
         maxHROverride = (defaults.object(forKey: Keys.maxHR) as? Double) ?? 0
         lastSyncAt = (defaults.object(forKey: Keys.lastSync) as? Double).map(Date.init(timeIntervalSince1970:))
         selectedDayKey = DayKey.today()
@@ -149,6 +158,10 @@ final class AppModel {
 
     func strain(for key: String) -> StrainResult? {
         strainResults[key]
+    }
+
+    func ageResult(for key: String) -> AgeResult? {
+        ageResults[key]
     }
 
     var selectedRecord: DayRecord? {
@@ -217,9 +230,42 @@ final class AppModel {
         }
         recoveryResults = recoveries
 
+        // Biologisches „Pulse Alter" je Tag aus dem 30-Tage-Fenster.
+        var ages: [String: AgeResult] = [:]
+        for key in keys {
+            let window = store.chronological(upTo: key, count: AgeEngine.calibrationNeed)
+            guard !window.isEmpty else { continue }
+            let sleepPerf = window.compactMap { record -> Double? in
+                guard let analysis = sleepAnalyses[record.date], analysis.hasData else { return nil }
+                return analysis.performance
+            }
+            let inputs = AgeInputs(
+                chronoAge: age,
+                sex: sex,
+                vo2maxValues: window.compactMap { $0.vo2max },
+                rmssdValues: window.compactMap { $0.hrvRmssd },
+                restingHRValues: window.compactMap { $0.restingHR },
+                observedMaxHR: Self.robustMaxHR(window),
+                maxHROverride: maxHROverride > 0 ? maxHROverride : nil,
+                sleepPerformances: sleepPerf,
+                stepsValues: window.compactMap { $0.steps.map(Double.init) },
+                validDayCount: window.filter { $0.hrvRmssd != nil || $0.restingHR != nil }.count
+            )
+            ages[key] = AgeEngine.compute(dateKey: key, inputs: inputs)
+        }
+        ageResults = ages
+
         if store.days[selectedDayKey] == nil, let last = keys.last {
             selectedDayKey = last
         }
+    }
+
+    /// Robuster beobachteter Maxpuls (97,5. Perzentil) über die Intraday-HF des
+    /// Fensters; nil bei zu wenig Samples (verhindert Artefakt-Ausreißer).
+    private static func robustMaxHR(_ window: [DayRecord]) -> Double? {
+        let bpms = window.flatMap { $0.hrSamples.map(\.bpm) }
+        guard bpms.count >= 300 else { return nil }
+        return Stats.percentile(bpms, 0.975)
     }
 
     // MARK: - Aktionen
@@ -302,7 +348,11 @@ final class AppModel {
         syncLog = outcome.log
         lastSyncAt = Date()
         profileName = outcome.profile?.displayName ?? profileName
-        recomputeAll()
+        if sex == .unspecified, let profileSex = outcome.profile?.sex, profileSex != .unspecified {
+            sex = profileSex // löst recomputeAll() aus
+        } else {
+            recomputeAll()
+        }
 
         if outcome.hadErrors {
             lastError = "Sync mit Warnungen abgeschlossen – Details im Sync-Protokoll."

@@ -273,26 +273,30 @@ public final class HealthAPIClient: @unchecked Sendable {
         let points = try await fetchRawDataPoints(
             type: "exercise",
             payloadKey: "exercise",
-            filterField: "interval.end_time",
+            filterField: "session_time_interval.end_time",
             start: start,
             end: end
         )
-        return points.compactMap { point -> Workout? in
-            let payload = (point["exercise"] as? [String: Any]) ?? point
-            let interval = (payload["interval"] as? [String: Any]) ?? [:]
-            guard let start = JSONExtract.date(from: interval["startTime"]) ?? JSONExtract.firstDate(in: payload, keys: ["startTime"]),
-                  let end = JSONExtract.date(from: interval["endTime"]) ?? JSONExtract.firstDate(in: payload, keys: ["endTime"]) else {
-                return nil
-            }
-            let name = (payload["activityName"] as? String)
-                ?? (payload["activityType"] as? String)
-                ?? (payload["name"] as? String)
-                ?? "Workout"
-            let avgHR = JSONExtract.firstDouble(in: payload, keys: ["averageHeartRate", "avgHeartRate", "averageHeartRateBpm"])
-            let calories = JSONExtract.firstDouble(in: payload, keys: ["calories", "caloriesBurned", "activeCalories"])
-            let id = (point["name"] as? String) ?? "\(start.timeIntervalSince1970)-\(name)"
-            return Workout(id: id, name: name, start: start, end: end, averageHR: avgHR, calories: calories)
+        return points.compactMap { Self.parseExercise($0) }
+    }
+
+    public static func parseExercise(_ point: [String: Any]) -> Workout? {
+        let payload = (point["exercise"] as? [String: Any]) ?? point
+        // Exercise nutzt "sessionTimeInterval" (nicht "interval" wie Schlaf).
+        let interval = (payload["sessionTimeInterval"] as? [String: Any])
+            ?? (payload["interval"] as? [String: Any]) ?? [:]
+        guard let start = JSONExtract.date(from: interval["startTime"]) ?? JSONExtract.firstDate(in: payload, keys: ["startTime"]),
+              let end = JSONExtract.date(from: interval["endTime"]) ?? JSONExtract.firstDate(in: payload, keys: ["endTime"]) else {
+            return nil
         }
+        let name = (payload["activityName"] as? String)
+            ?? (payload["activityType"] as? String)
+            ?? (payload["name"] as? String)
+            ?? "Workout"
+        let avgHR = JSONExtract.firstDouble(in: payload, keys: ["averageHeartRate", "avgHeartRate", "averageHeartRateBpm"])
+        let calories = JSONExtract.firstDouble(in: payload, keys: ["calories", "caloriesBurned", "activeCalories"])
+        let id = (point["name"] as? String) ?? "\(start.timeIntervalSince1970)-\(name)"
+        return Workout(id: id, name: name, start: start, end: end, averageHR: avgHR, calories: calories)
     }
 
     /// Nutzerprofil (Name, Geburtstag falls freigegeben).
@@ -301,7 +305,8 @@ public final class HealthAPIClient: @unchecked Sendable {
         let payload = (json["profile"] as? [String: Any]) ?? json
         let name = (payload["displayName"] as? String) ?? (payload["fullName"] as? String)
         let birthday = JSONExtract.firstString(in: payload, keys: ["birthday", "dateOfBirth"])
-        return UserProfile(displayName: name, birthday: birthday)
+        let genderString = JSONExtract.firstString(in: payload, keys: ["gender", "sex", "biologicalSex"])
+        return UserProfile(displayName: name, birthday: birthday, sex: BiologicalSex(apiValue: genderString))
     }
 
     // MARK: - HTTP

@@ -54,6 +54,7 @@ struct DashboardView: View {
                 }
 
                 recoveryCard
+                ageCard
                 sleepCard
                 strainCard
                 healthCard
@@ -156,6 +157,79 @@ struct DashboardView: View {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Pulse Alter
+
+    private var ageCard: some View {
+        NavigationLink {
+            AgeDetailView()
+        } label: {
+            SectionCard("Pulse Alter") {
+                if let result = model.ageResult(for: model.selectedDayKey) {
+                    if let pulseAge = result.pulseAge, let delta = result.deltaYears {
+                        HStack(spacing: 18) {
+                            VStack(spacing: 0) {
+                                Text("\(Int(pulseAge.rounded()))")
+                                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Theme.textPrimary)
+                                Text("Jahre")
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                            .frame(width: 108)
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(Self.deltaText(delta))
+                                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                    .foregroundStyle(Self.deltaColor(delta))
+                                Text("Chronologisch: \(result.chronoAge) Jahre")
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.textSecondary)
+                                if let vo2 = result.vo2max {
+                                    Text(String(format: "VO₂max %.0f%@", vo2, result.vo2maxEstimated ? " (geschätzt)" : ""))
+                                        .font(.caption)
+                                        .foregroundStyle(Theme.textSecondary)
+                                }
+                                if result.calibrating {
+                                    Text("kalibriert noch · Tag \(result.calibrationHave)/\(result.calibrationNeed)")
+                                        .font(.caption2)
+                                        .foregroundStyle(Theme.yellow)
+                                }
+                            }
+                        }
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Wird kalibriert …")
+                                .font(.system(.title3, design: .rounded).weight(.bold))
+                                .foregroundStyle(Theme.textPrimary)
+                            Text("Sammle mind. \(result.calibrationNeed) Tage Daten – aktuell Tag \(result.calibrationHave)/\(result.calibrationNeed).")
+                                .font(.caption)
+                                .foregroundStyle(Theme.textSecondary)
+                            ProgressView(value: Double(result.calibrationHave), total: Double(result.calibrationNeed))
+                                .tint(Theme.teal)
+                        }
+                    }
+                } else {
+                    EmptyDataHint(text: "Noch keine Daten für das Pulse Alter.")
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    static func deltaText(_ delta: Double) -> String {
+        let years = abs(delta)
+        let rounded = Int(years.rounded())
+        if rounded == 0 { return "Genau in deinem Alter" }
+        let unit = rounded == 1 ? "Jahr" : "Jahre"
+        return delta < 0 ? "\(rounded) \(unit) jünger" : "\(rounded) \(unit) älter"
+    }
+
+    static func deltaColor(_ delta: Double) -> Color {
+        if delta <= -1 { return Theme.green }
+        if delta >= 1 { return Theme.orange }
+        return Theme.textSecondary
     }
 
     // MARK: - Schlaf
