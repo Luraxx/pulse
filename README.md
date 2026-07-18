@@ -228,6 +228,15 @@ Strings in [SyncEngine.swift](Core/Sync/SyncEngine.swift) an.
 - **`access_denied` beim Login** → deine Adresse fehlt unter *Audience → Test users*.
 - **Einzelne Metriken leer** → Sync-Protokoll prüfen; Datentyp evtl. für die Fitbit
   Air (noch) nicht befüllt oder anders benannt (Mapping-Tabelle oben anpassen).
+- **Widget baut nicht / Signing-Fehler** → Das Widget (`PulseWidget`) nutzt eine
+  **App Group** (`group.net.dehlwes.pulse`), um den Recovery-Score mit der App zu
+  teilen. Xcode verwaltet das bei automatischem Signing selbst; bei einer
+  **kostenlosen Apple-ID** kann es sein, dass du in *Signing & Capabilities* für
+  **beide** Targets (Pulse + PulseWidget) einmal dein Team wählen und die App-Group
+  bestätigen musst. Zickt es weiterhin, kannst du das Widget mit `git revert` des
+  Widget-Commits entfernen – der Rest der App bleibt unberührt.
+- **Hintergrund-Sync läuft nicht sekundengenau** → normal. iOS führt
+  `BGAppRefreshTask` opportunistisch aus (meist nachts/morgens), nicht auf Zuruf.
 
 ## Roadmap-Ideen
 

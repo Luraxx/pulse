@@ -21,6 +21,13 @@ targets:
     deploymentTarget: "17.0"
     scheme:
       testTargets: []
+    dependencies:
+      - target: PulseWidget
+    entitlements:
+      path: App/Pulse.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.net.dehlwes.pulse
     sources:
       - path: App
       - path: Core
@@ -45,4 +52,27 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        INFOPLIST_KEY_CFBundleDisplayName: Pulse
+
+  PulseWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    entitlements:
+      path: PulseWidget/PulseWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.net.dehlwes.pulse
+    sources:
+      - path: PulseWidget
+    info:
+      path: PulseWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Pulse
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.dehlwes.pulse.widget
+        TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_CFBundleDisplayName: Pulse

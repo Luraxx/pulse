@@ -342,6 +342,9 @@ final class AppModel {
         if store.days[selectedDayKey] == nil, let last = keys.last {
             selectedDayKey = last
         }
+
+        // Recovery-Snapshot für das Widget aktualisieren.
+        WidgetBridge.publish(recovery: recoveryResults[DayKey.today()])
     }
 
     /// Robuster beobachteter Maxpuls (97,5. Perzentil) über die Intraday-HF des
