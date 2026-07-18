@@ -24,8 +24,6 @@ func trendPoints(_ pairs: [(key: String, value: Double)]) -> [TrendPoint] {
 
 struct HRDayChart: View {
     let samples: [HRSample]
-    /// Max. Herzfrequenz für die Zonen-Bänder (Tanaka/Override).
-    var maxHR: Double = 190
     @State private var selectedTime: Date?
 
     private var display: [HRSample] {
@@ -42,56 +40,27 @@ struct HRDayChart: View {
         }
     }
 
-    /// Herzfrequenzzonen als Anteil der max. HF (untere Grenze in bpm).
-    private var zoneBands: [(name: String, lower: Double, upper: Double, color: Color)] {
-        [
-            ("Ruhe", 0, maxHR * 0.5, Theme.teal),
-            ("Leicht", maxHR * 0.5, maxHR * 0.6, Theme.green),
-            ("Moderat", maxHR * 0.6, maxHR * 0.7, Theme.yellow),
-            ("Fordernd", maxHR * 0.7, maxHR * 0.85, Theme.orange),
-            ("Hart", maxHR * 0.85, maxHR * 1.1, Theme.red),
-        ]
-    }
-
     var body: some View {
         let values = display.map(\.bpm)
-        let lower = min((values.min() ?? 40) - 8, maxHR * 0.5)
+        let lower = (values.min() ?? 40) - 8
         let upper = (values.max() ?? 180) + 12
 
-        VStack(alignment: .leading, spacing: 8) {
-            // Ablese-Kopf (Scrubber-Wert)
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
+            // Ablese-Zeile: nur bei Auswahl gefüllt, feste Höhe (kein Springen).
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 if let s = selectedSample {
-                    Text(Fmt.clock(s.t))
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(Theme.textSecondary)
-                    Text("\(Int(s.bpm.rounded())) bpm")
-                        .font(.caption.monospacedDigit().weight(.bold))
+                    Text("\(Int(s.bpm.rounded()))")
+                        .font(.system(.title3, design: .rounded).weight(.bold))
                         .foregroundStyle(Theme.red)
-                } else {
-                    Image(systemName: "hand.point.up.left")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.textSecondary)
-                    Text("Tippen oder ziehen zum Ablesen")
-                        .font(.caption2)
+                    Text("bpm · \(Fmt.clock(s.t)) Uhr")
+                        .font(.caption)
                         .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
             }
+            .frame(height: 26)
 
             Chart {
-                if let x0 = display.first?.t, let x1 = display.last?.t {
-                    ForEach(zoneBands, id: \.name) { zone in
-                        RectangleMark(
-                            xStart: .value("Start", x0),
-                            xEnd: .value("Ende", x1),
-                            yStart: .value("unten", zone.lower),
-                            yEnd: .value("oben", zone.upper)
-                        )
-                        .foregroundStyle(zone.color.opacity(0.09))
-                    }
-                }
-
                 ForEach(display, id: \.t) { sample in
                     LineMark(
                         x: .value("Zeit", sample.t),
@@ -104,7 +73,7 @@ struct HRDayChart: View {
 
                 if let s = selectedSample {
                     RuleMark(x: .value("Zeit", s.t))
-                        .foregroundStyle(Theme.textSecondary.opacity(0.5))
+                        .foregroundStyle(Theme.textSecondary.opacity(0.45))
                         .lineStyle(StrokeStyle(lineWidth: 1))
                     PointMark(
                         x: .value("Zeit", s.t),
@@ -130,10 +99,6 @@ struct HRDayChart: View {
                 }
             }
             .frame(height: 160)
-
-            Text("Farbbänder = Herzfrequenzzonen (Ruhe → Hart, in % deiner max. HF ≈ \(Int(maxHR.rounded())))")
-                .font(.caption2)
-                .foregroundStyle(Theme.textSecondary)
         }
     }
 }

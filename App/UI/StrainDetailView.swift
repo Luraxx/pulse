@@ -10,13 +10,7 @@ struct StrainDetailView: View {
                 VStack(spacing: 14) {
                     if let strain = model.strain(for: model.selectedDayKey) {
                         heroCard(strain)
-                        SectionCard("Zeit in Intensitätszonen") {
-                            if strain.zoneMinutes.reduce(0, +) > 0 {
-                                ZoneBarsView(zoneMinutes: strain.zoneMinutes)
-                            } else {
-                                EmptyDataHint(text: "Keine Belastungszeit oberhalb der Grundintensität.")
-                            }
-                        }
+                        zonesCard(strain)
                         hrCard
                         workoutsCard
                         trendCard
@@ -70,6 +64,36 @@ struct StrainDetailView: View {
         }
     }
 
+    private func zonesCard(_ strain: StrainResult) -> some View {
+        let active = strain.zoneMinutes.reduce(0, +)
+        return SectionCard("Zeit in Intensitätszonen") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    StatCell(label: "Aufgezeichnet", value: durationText(strain.trackedMinutes))
+                    StatCell(label: "Ruhe", value: durationText(strain.restMinutes))
+                    StatCell(label: "Aktiv", value: durationText(active))
+                }
+                if active >= 1 {
+                    Divider().background(Theme.stroke)
+                    ZoneBarsView(zoneMinutes: strain.zoneMinutes)
+                } else if strain.trackedMinutes > 0 {
+                    Text("Heute keine Zeit oberhalb der Ruhezone – ein reiner Erholungstag. Die Zonen zählen nur aktive Belastung (ab ~20 % deiner Herzfrequenzreserve), nicht die ruhige Tragezeit.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.textSecondary)
+                } else {
+                    EmptyDataHint(text: "Noch keine Herzfrequenzdaten für diesen Tag.")
+                }
+            }
+        }
+    }
+
+    /// Minuten → "4 min" bzw. "3:50 h".
+    private func durationText(_ minutes: Double) -> String {
+        let m = Int(minutes.rounded())
+        if m < 60 { return "\(m) min" }
+        return "\(Fmt.hm(minutes)) h"
+    }
+
     private func strainText(_ value: Double) -> String {
         switch value {
         case ..<6: return "Leichter Tag – gut für Erholung."
@@ -84,7 +108,7 @@ struct StrainDetailView: View {
     private var hrCard: some View {
         if let record = model.selectedRecord, !record.hrSamples.isEmpty {
             SectionCard("Herzfrequenz-Tagesverlauf") {
-                HRDayChart(samples: record.hrSamples, maxHR: model.strainConfig.maxHR)
+                HRDayChart(samples: record.hrSamples)
             }
         }
     }
