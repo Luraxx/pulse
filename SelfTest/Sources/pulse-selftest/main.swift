@@ -177,6 +177,20 @@ check(StrainEngine.zoneIndex(for: 0.1) == nil, "Unter Zone 0 → kein Load")
 check(StrainEngine.zoneIndex(for: 0.5) == 2, "50 % HRR → Zone 3 (Index 2)")
 check(StrainEngine.zoneIndex(for: 0.99) == 5, "99 % HRR → Maximal-Zone")
 
+// Ruhezeit: Samples nahe Ruhepuls erzeugen keine aktive Zonenzeit, aber restMin.
+let strainBase = DayKey.date(from: "2026-07-17")!
+let restSamples = (0..<10).map { HRSample(t: strainBase.addingTimeInterval(Double($0) * 60), bpm: 60) }
+let restAcc = StrainEngine.accumulate(samples: restSamples, restingHR: 58, maxHR: 190)
+check(restAcc.zones.reduce(0, +) == 0, "Ruhepuls-nahe Samples → keine aktive Zonenzeit")
+check(restAcc.restMin >= 9, "Ruhezeit wird erfasst (\(Int(restAcc.restMin)) min)")
+let restResult = StrainEngine.dayStrain(
+    record: { var r = DayRecord(date: "2026-07-17"); r.hrSamples = restSamples; return r }(),
+    restingHR: 58,
+    config: StrainConfig(age: 30)
+)
+check(restResult.strain < 1, "Reiner Ruhetag → Strain nahe 0")
+check(restResult.trackedMinutes >= 9, "Aufgezeichnete Zeit (Ruhe+aktiv) sichtbar")
+
 // MARK: Demo-Daten + Engines Ende-zu-Ende
 
 section("Demo-Daten & Engines")
@@ -393,6 +407,17 @@ let nightSamples = [
 ]
 let grouped = SyncEngine.groupByNight(nightSamples)
 check(grouped["2026-07-17"]?.count == 2, "Nacht-Gruppierung fasst Abend + Morgen zusammen")
+
+// Spike-Filter: isolierte Artefakt-Spitze wird geglättet, Rampe bleibt.
+let spikeSamples = [60.0, 62, 175, 61, 63].enumerated().map {
+    HRSample(t: base.addingTimeInterval(Double($0.offset) * 60), bpm: $0.element)
+}
+let deSpiked = SyncEngine.removeSpikes(spikeSamples)
+check(deSpiked[2].bpm < 100, "Isolierte HF-Spitze (175) wird geglättet → \(Int(deSpiked[2].bpm))")
+let rampSamples = [60.0, 105, 150, 175].enumerated().map {
+    HRSample(t: base.addingTimeInterval(Double($0.offset) * 60), bpm: $0.element)
+}
+check(SyncEngine.removeSpikes(rampSamples).map(\.bpm) == rampSamples.map(\.bpm), "Monotoner Anstieg bleibt unangetastet")
 
 // MARK: Store-Roundtrip
 

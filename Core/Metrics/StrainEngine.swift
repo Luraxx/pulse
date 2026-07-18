@@ -24,8 +24,25 @@ public struct StrainResult: Sendable {
     public let rawLoad: Double
     /// Minuten je Intensitätszone (Index 0 = sehr leicht … 5 = maximal).
     public let zoneMinutes: [Double]
+    /// Minuten unterhalb der ersten Zone (Ruhe/Alltag) — zählt nicht zum Strain,
+    /// macht aber die aufgezeichnete Gesamtzeit sichtbar.
+    public let restMinutes: Double
     public let avgHR: Double?
     public let peakHR: Double?
+
+    public init(strain: Double, rawLoad: Double, zoneMinutes: [Double], restMinutes: Double = 0, avgHR: Double?, peakHR: Double?) {
+        self.strain = strain
+        self.rawLoad = rawLoad
+        self.zoneMinutes = zoneMinutes
+        self.restMinutes = restMinutes
+        self.avgHR = avgHR
+        self.peakHR = peakHR
+    }
+
+    /// Aufgezeichnete Gesamtzeit mit gültigem Puls (Ruhe + aktive Zonen), in Minuten.
+    public var trackedMinutes: Double {
+        restMinutes + zoneMinutes.reduce(0, +)
+    }
 
     public static let empty = StrainResult(strain: 0, rawLoad: 0, zoneMinutes: Array(repeating: 0, count: 6), avgHR: nil, peakHR: nil)
 }
@@ -58,14 +75,15 @@ public enum StrainEngine {
         samples: [HRSample],
         restingHR: Double,
         maxHR: Double
-    ) -> (raw: Double, zones: [Double], avgHR: Double?, peakHR: Double?) {
+    ) -> (raw: Double, zones: [Double], avgHR: Double?, peakHR: Double?, restMin: Double) {
         let emptyZones = Array(repeating: 0.0, count: zoneWeights.count)
         guard !samples.isEmpty, maxHR > restingHR + 20 else {
-            return (0, emptyZones, nil, nil)
+            return (0, emptyZones, nil, nil, 0)
         }
         let sorted = samples.sorted { $0.t < $1.t }
         var raw = 0.0
         var zones = emptyZones
+        var restMin = 0.0
         var previous: Date?
         var sum = 0.0
         var peak = 0.0
@@ -80,11 +98,14 @@ public enum StrainEngine {
             peak = max(peak, sample.bpm)
 
             let fraction = (sample.bpm - restingHR) / (maxHR - restingHR)
-            guard let zone = zoneIndex(for: fraction) else { continue }
+            guard let zone = zoneIndex(for: fraction) else {
+                restMin += dt // unter Zone 0 → Ruhe/Alltag, kein Strain
+                continue
+            }
             raw += zoneWeights[zone] * dt
             zones[zone] += dt
         }
-        return (raw, zones, sum / Double(sorted.count), peak)
+        return (raw, zones, sum / Double(sorted.count), peak, restMin)
     }
 
     /// Tages-Strain aus Intraday-HR; Fallback über Workout-Durchschnittspuls
@@ -103,6 +124,7 @@ public enum StrainEngine {
                 strain: strain(fromRaw: acc.raw, tau: config.tau),
                 rawLoad: acc.raw,
                 zoneMinutes: acc.zones,
+                restMinutes: acc.restMin,
                 avgHR: acc.avgHR,
                 peakHR: acc.peakHR
             )

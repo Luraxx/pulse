@@ -294,7 +294,7 @@ public final class SyncEngine: @unchecked Sendable {
                     end: dayEnd
                 )
                 guard !samples.isEmpty else { continue }
-                let downsampled = Self.downsampleToMinutes(samples)
+                let downsampled = Self.removeSpikes(Self.downsampleToMinutes(samples))
                 update(key) { $0.hrSamples = downsampled }
                 hrDayCount += 1
             } catch {
@@ -345,6 +345,27 @@ public final class SyncEngine: @unchecked Sendable {
         var result: [String: [Double]] = [:]
         for sample in samples {
             result[DayKey.nightKey(for: sample.time), default: []].append(sample.value)
+        }
+        return result
+    }
+
+    /// Glättet isolierte Herzfrequenz-Artefakte: Ein einzelnes Sample, das
+    /// gegenüber **beiden** Nachbarn um mehr als `maxJump` in dieselbe Richtung
+    /// ausschlägt (physiologisch unmöglich in 1 Minute), wird durch den
+    /// Nachbar-Mittelwert ersetzt. Echte Anstiege sind graduell und bleiben.
+    public static func removeSpikes(_ samples: [HRSample], maxJump: Double = 40) -> [HRSample] {
+        guard samples.count >= 3 else { return samples }
+        var result = samples
+        for i in 1..<(samples.count - 1) {
+            let prev = samples[i - 1].bpm
+            let cur = samples[i].bpm
+            let next = samples[i + 1].bpm
+            let dPrev = cur - prev
+            let dNext = cur - next
+            // Beide Differenzen groß und gleiches Vorzeichen → isolierte Spitze/Delle.
+            if abs(dPrev) > maxJump, abs(dNext) > maxJump, dPrev * dNext > 0 {
+                result[i] = HRSample(t: samples[i].t, bpm: (prev + next) / 2)
+            }
         }
         return result
     }
