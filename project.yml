@@ -35,6 +35,10 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         ITSAppUsesNonExemptEncryption: false
+        UIBackgroundModes:
+          - fetch
+        BGTaskSchedulerPermittedIdentifiers:
+          - net.dehlwes.pulse.refresh
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.dehlwes.pulse

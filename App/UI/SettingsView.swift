@@ -12,6 +12,7 @@ struct SettingsView: View {
             Form {
                 connectionSection
                 syncSection
+                notificationsSection
                 ProfileFields(model: model)
                 calculationSection(model: $model)
                 demoSection
@@ -94,6 +95,21 @@ struct SettingsView: View {
             NavigationLink("Sync-Protokoll") {
                 SyncLogView()
             }
+        }
+    }
+
+    // MARK: - Benachrichtigungen
+
+    private var notificationsSection: some View {
+        Section {
+            Toggle("Morgendliche Recovery-Meldung", isOn: Binding(
+                get: { model.notificationsEnabled },
+                set: { on in Task { await model.setNotifications(enabled: on) } }
+            ))
+        } header: {
+            Text("Benachrichtigungen")
+        } footer: {
+            Text("Pulse synchronisiert im Hintergrund und schickt dir morgens deine Recovery – plus eine Warnung, bevor die Google-Verbindung nach 7 Tagen abläuft. Wann iOS den Hintergrund-Sync ausführt, entscheidet das System (meist nachts/morgens, nicht sekundengenau).")
         }
     }
 

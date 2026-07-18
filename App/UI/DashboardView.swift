@@ -52,12 +52,16 @@ struct DashboardView: View {
                 if let error = model.lastError, !model.syncing {
                     errorBanner(error)
                 }
+                if let alert = model.healthAlert {
+                    alertBanner(alert)
+                }
 
                 recoveryCard
                 ageCard
                 sleepCard
                 strainCard
                 healthCard
+                JournalCard()
                 footer
             }
             .padding(.horizontal, 16)
@@ -103,6 +107,24 @@ struct DashboardView: View {
                         .font(.caption)
                         .foregroundStyle(Theme.textSecondary)
                 }
+            }
+        }
+    }
+
+    private func alertBanner(_ alert: HealthAlert) -> some View {
+        SectionCard {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "waveform.path.ecg.rectangle.fill")
+                    .foregroundStyle(Theme.orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Gesundheits-Hinweis")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text(alert.message)
+                        .font(.caption)
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                Spacer()
             }
         }
     }
@@ -274,6 +296,12 @@ struct DashboardView: View {
                                 Text("Keine Schlafschuld")
                                     .font(.caption)
                                     .foregroundStyle(Theme.green)
+                            }
+                            if model.selectedDayKey == DayKey.today(),
+                               let bed = model.bedtimeTonight?.recommendedBedtimeMinutes {
+                                Label("Ziel heute: bis \(Fmt.clockFromMinutes(bed)) ins Bett", systemImage: "bed.double")
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.teal)
                             }
                         }
                     }

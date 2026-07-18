@@ -123,6 +123,12 @@ enum Fmt {
         clockFormatter.string(from: date)
     }
 
+    /// Minuten seit Mitternacht → "22:55".
+    static func clockFromMinutes(_ minutes: Double) -> String {
+        let m = (Int(minutes.rounded()) % 1440 + 1440) % 1440
+        return String(format: "%02d:%02d", m / 60, m % 60)
+    }
+
     static func dayTitle(_ key: String) -> String {
         guard let date = DayKey.date(from: key) else { return key }
         if key == DayKey.today() { return "Heute" }

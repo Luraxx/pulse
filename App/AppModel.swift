@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import AuthenticationServices
+import BackgroundTasks
 
 /// Zentrales App-Modell: hält Store, Auth, Einstellungen und die berechneten
 /// Whoop-Metriken (Recovery, Strain, Schlaf) für alle Views bereit.
@@ -22,7 +23,13 @@ final class AppModel {
         static let weightKg = "profile.weightKg"
         static let maxHR = "calc.maxHROverride"
         static let lastSync = "sync.lastSyncAt"
+        static let notifications = "notify.enabled"
+        static let connectedAt = "auth.connectedAt"
     }
+
+    /// Identifier des Hintergrund-Sync-Tasks (muss in Info.plist unter
+    /// BGTaskSchedulerPermittedIdentifiers stehen).
+    static let refreshTaskID = "net.dehlwes.pulse.refresh"
 
     var clientID: String {
         didSet { defaults.set(clientID, forKey: Keys.clientID) }
@@ -81,6 +88,20 @@ final class AppModel {
             }
         }
     }
+    /// Opt-in für morgendliche Recovery-Benachrichtigung + Hintergrund-Sync.
+    private(set) var notificationsEnabled: Bool {
+        didSet { defaults.set(notificationsEnabled, forKey: Keys.notifications) }
+    }
+    /// Zeitpunkt der letzten Verbindung (für die 7-Tage-Ablaufwarnung).
+    private(set) var connectedAt: Date? {
+        didSet {
+            if let connectedAt {
+                defaults.set(connectedAt.timeIntervalSince1970, forKey: Keys.connectedAt)
+            } else {
+                defaults.removeObject(forKey: Keys.connectedAt)
+            }
+        }
+    }
 
     // MARK: - Laufzeit-Zustand
 
@@ -95,11 +116,13 @@ final class AppModel {
     // MARK: - Daten & abgeleitete Metriken
 
     let store: MetricsStore
+    let journal: JournalStore
     let auth = GoogleAuth()
     private(set) var strainResults: [String: StrainResult] = [:]
     private(set) var sleepAnalyses: [String: SleepAnalysis] = [:]
     private(set) var recoveryResults: [String: RecoveryResult] = [:]
     private(set) var ageResults: [String: AgeResult] = [:]
+    private(set) var journalInsights: [FactorInsight] = []
 
     private let defaults = UserDefaults.standard
 
@@ -108,6 +131,7 @@ final class AppModel {
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Pulse", isDirectory: true)
         store = MetricsStore(directory: directory)
+        journal = JournalStore(directory: directory)
 
         clientID = defaults.string(forKey: Keys.clientID) ?? ""
         onboarded = defaults.bool(forKey: Keys.onboarded)
@@ -121,6 +145,8 @@ final class AppModel {
         weightKg = (defaults.object(forKey: Keys.weightKg) as? Double) ?? 75
         maxHROverride = (defaults.object(forKey: Keys.maxHR) as? Double) ?? 0
         lastSyncAt = (defaults.object(forKey: Keys.lastSync) as? Double).map(Date.init(timeIntervalSince1970:))
+        notificationsEnabled = defaults.bool(forKey: Keys.notifications)
+        connectedAt = (defaults.object(forKey: Keys.connectedAt) as? Double).map(Date.init(timeIntervalSince1970:))
         selectedDayKey = DayKey.today()
 
         recomputeAll()
@@ -174,6 +200,51 @@ final class AppModel {
 
     func ageResult(for key: String) -> AgeResult? {
         ageResults[key]
+    }
+
+    // MARK: - Journal
+
+    func journalEntry(for key: String) -> JournalEntry {
+        journal.entry(for: key)
+    }
+
+    func toggleJournal(_ factor: JournalFactor, on key: String) {
+        journal.toggle(factor, on: key)
+        journal.save()
+        recomputeJournalInsights()
+    }
+
+    private func recomputeJournalInsights() {
+        let recoveryByDay = recoveryResults.mapValues { $0.score }
+        journalInsights = JournalEngine.insights(entries: journal.entries, recoveryByDay: recoveryByDay)
+    }
+
+    // MARK: - Health-Warnung & Zubettgeh-Empfehlung
+
+    /// Proaktive Gesundheitswarnung für den ausgewählten Tag (nil = alles im Rahmen).
+    var healthAlert: HealthAlert? {
+        let records = store.chronological(upTo: selectedDayKey, count: 10)
+        return HealthMonitor.alert(records: records)
+    }
+
+    /// Empfehlung für die kommende Nacht (aus Schlafschuld, heutigem Strain,
+    /// gewohnter Aufwachzeit). nil ohne genug Historie.
+    var bedtimeTonight: BedtimeRecommendation? {
+        guard hasData else { return nil }
+        let today = DayKey.today()
+        let debt = sleepAnalyses[today]?.debtAfterMinutes
+            ?? store.sortedKeys.last.flatMap { sleepAnalyses[$0]?.debtAfterMinutes }
+            ?? 0
+        let strainToday = strainResults[today]?.strain ?? 0
+        let recentWakes = store.chronological(upTo: today, count: 7)
+            .compactMap { sleepAnalyses[$0.date]?.wakeTime }
+        guard !recentWakes.isEmpty else { return nil }
+        return SleepEngine.bedtimeRecommendation(
+            currentDebtMinutes: debt,
+            strainToday: strainToday,
+            recentWakeTimes: recentWakes,
+            config: sleepConfig
+        )
     }
 
     var selectedRecord: DayRecord? {
@@ -241,6 +312,7 @@ final class AppModel {
             history.append(record)
         }
         recoveryResults = recoveries
+        recomputeJournalInsights()
 
         // Biologisches „Pulse Alter" je Tag aus dem 30-Tage-Fenster.
         var ages: [String: AgeResult] = [:]
@@ -312,6 +384,11 @@ final class AppModel {
                 return
             }
             _ = try await auth.exchange(code: code, pkce: pkce, config: config)
+            connectedAt = Date()
+            if notificationsEnabled, let connectedAt {
+                PulseNotifications.scheduleTokenExpiry(connectedAt: connectedAt)
+                scheduleBackgroundRefresh()
+            }
             if demoMode {
                 store.wipe()
                 demoMode = false
@@ -331,7 +408,7 @@ final class AppModel {
         }
     }
 
-    func syncNow() async {
+    func syncNow(daysBackOverride: Int? = nil, hrDaysBackOverride: Int? = nil) async {
         guard !syncing else { return }
         guard isConnected else {
             lastError = AuthError.notConnected.errorDescription
@@ -346,8 +423,8 @@ final class AppModel {
         let engine = SyncEngine(client: client)
         let outcome = await engine.sync(
             existingDays: store.days,
-            daysBack: daysBack,
-            hrDaysBack: hrDaysBack
+            daysBack: daysBackOverride ?? daysBack,
+            hrDaysBack: hrDaysBackOverride ?? hrDaysBack
         ) { [weak self] progress in
             Task { @MainActor in
                 self?.syncMessage = progress.message
@@ -373,16 +450,71 @@ final class AppModel {
 
     func disconnect() {
         auth.disconnect()
+        connectedAt = nil
+        PulseNotifications.cancelTokenExpiry()
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.refreshTaskID)
     }
 
     func resetAll() {
         store.wipe()
+        journal.wipe()
         syncLog = []
         lastSyncAt = nil
+        connectedAt = nil
         demoMode = false
         onboarded = false
         profileName = nil
         lastError = nil
+        PulseNotifications.cancelAll()
         recomputeAll()
+    }
+
+    // MARK: - Benachrichtigungen & Hintergrund-Sync
+
+    func setNotifications(enabled: Bool) async {
+        if enabled {
+            let granted = await PulseNotifications.requestAuthorization()
+            notificationsEnabled = granted
+            if granted {
+                if let connectedAt { PulseNotifications.scheduleTokenExpiry(connectedAt: connectedAt) }
+                scheduleBackgroundRefresh()
+            }
+        } else {
+            notificationsEnabled = false
+            PulseNotifications.cancelAll()
+            BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.refreshTaskID)
+        }
+    }
+
+    /// Plant den nächsten Hintergrund-Sync. iOS entscheidet über den realen
+    /// Zeitpunkt – „ab früh morgens" ist nur ein Wunsch, keine Garantie.
+    func scheduleBackgroundRefresh() {
+        guard notificationsEnabled, isConnected else { return }
+        let request = BGAppRefreshTaskRequest(identifier: Self.refreshTaskID)
+        request.earliestBeginDate = Self.nextEarlyMorning()
+        try? BGTaskScheduler.shared.submit(request)
+    }
+
+    /// Aufgerufen vom `.backgroundTask`-Handler: leichter Sync + Morgen-Notification.
+    func performBackgroundRefresh() async {
+        scheduleBackgroundRefresh() // sofort den nächsten Lauf einplanen
+        guard isConnected else { return }
+        await syncNow(daysBackOverride: 3, hrDaysBackOverride: 1)
+        guard notificationsEnabled, await PulseNotifications.isAuthorized() else { return }
+        let today = DayKey.today()
+        if let rec = recovery(for: today) {
+            let sleepText = sleep(for: today).flatMap { $0.hasData ? "\(Fmt.hm($0.sleptMinutes)) h" : nil }
+            PulseNotifications.postRecoverySummary(recovery: rec.score, sleep: sleepText)
+        }
+    }
+
+    private static func nextEarlyMorning(hour: Int = 6, minute: Int = 30) -> Date {
+        let cal = Calendar.current
+        let now = Date()
+        var comps = cal.dateComponents([.year, .month, .day], from: now)
+        comps.hour = hour
+        comps.minute = minute
+        let target = cal.date(from: comps) ?? now.addingTimeInterval(6 * 3600)
+        return target > now ? target : (cal.date(byAdding: .day, value: 1, to: target) ?? now.addingTimeInterval(6 * 3600))
     }
 }

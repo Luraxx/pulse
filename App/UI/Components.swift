@@ -130,6 +130,59 @@ struct EmptyDataHint: View {
     }
 }
 
+// MARK: - Journal-Karte
+
+struct JournalCard: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let key = model.selectedDayKey
+        let entry = model.journalEntry(for: key)
+        SectionCard("Journal") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Was war los? Wirkt sich auf die Recovery der nächsten Nacht aus.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 108), spacing: 8)],
+                    alignment: .leading,
+                    spacing: 8
+                ) {
+                    ForEach(JournalFactor.allCases) { factor in
+                        let active = entry.factors.contains(factor)
+                        Button {
+                            model.toggleJournal(factor, on: key)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: factor.symbol)
+                                    .font(.caption)
+                                Text(factor.label)
+                                    .font(.caption)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.85)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(active ? Theme.teal.opacity(0.20) : Theme.cardElevated)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(active ? Theme.teal : .clear, lineWidth: 1)
+                            )
+                            .foregroundStyle(active ? Theme.teal : Theme.textSecondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Intensitätszonen
 
 struct ZoneBarsView: View {

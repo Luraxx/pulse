@@ -25,6 +25,7 @@ struct TrendsView: View {
                             sleepCard
                             hrvCard
                             rhrCard
+                            journalInsightsCard
                         } else {
                             EmptyDataHint(text: "Keine Daten vorhanden.")
                         }
@@ -34,6 +35,37 @@ struct TrendsView: View {
                 }
             }
             .navigationTitle("Trends")
+        }
+    }
+
+    private var journalInsightsCard: some View {
+        SectionCard("Journal-Korrelationen") {
+            if model.journalInsights.isEmpty {
+                EmptyDataHint(text: "Noch zu wenige Journal-Einträge. Hake im Tab Heute abends deine Faktoren ab – nach ein paar Wochen erscheinen hier die Zusammenhänge mit deiner Recovery.")
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(model.journalInsights) { insight in
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack {
+                                Label(insight.factor.label, systemImage: insight.factor.symbol)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Theme.textPrimary)
+                                Spacer()
+                                Text(String(format: "%+.0f", insight.delta))
+                                    .font(.system(.subheadline, design: .rounded).monospacedDigit().weight(.bold))
+                                    .foregroundStyle(insight.delta < 0 ? Theme.red : Theme.green)
+                            }
+                            Text("Ø Recovery danach: \(Int(insight.avgWith.rounded())) % mit · \(Int(insight.avgWithout.rounded())) % ohne (\(insight.daysWith)/\(insight.daysWithout) Tage)")
+                                .font(.caption2)
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    Text("Differenz in Recovery-Punkten am Folgetag, stärkster Effekt zuerst. Korrelation, kein Beweis.")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
         }
     }
 
