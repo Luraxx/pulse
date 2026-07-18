@@ -105,14 +105,14 @@ if let session = HealthAPIClient.parseSleep(sleepPoint) {
 }
 check(HealthAPIClient.parseSleep(["sleep": ["interval": [:]]]) == nil, "Unvollständige Schlafdaten → nil statt Absturz")
 
-// Exercise nutzt "sessionTimeInterval" (nicht "interval" wie Schlaf).
+// Exercise: Google nennt das Zeitintervall "interval" (Filter interval.civil_start_time).
 let exercisePoint = jsonDict(#"""
 {
   "name": "users/me/dataTypes/exercise/dataPoints/xyz",
   "exercise": {
     "exerciseType": "RUNNING",
     "activityName": "Laufen",
-    "sessionTimeInterval": { "startTime": "2026-07-17T17:30:00Z", "endTime": "2026-07-17T18:15:00Z" },
+    "interval": { "startTime": "2026-07-17T17:30:00Z", "endTime": "2026-07-17T18:15:00Z" },
     "averageHeartRate": 148,
     "calories": 430
   }
@@ -120,12 +120,17 @@ let exercisePoint = jsonDict(#"""
 """#)
 if let workout = HealthAPIClient.parseExercise(exercisePoint) {
     check(workout.name == "Laufen", "Workout-Name aus activityName")
-    check(abs(workout.durationMinutes - 45) < 0.01, "Workout-Dauer aus sessionTimeInterval = 45 min")
+    check(abs(workout.durationMinutes - 45) < 0.01, "Workout-Dauer aus interval = 45 min")
     check(workout.averageHR == 148, "Ø-Puls des Workouts dekodiert")
 } else {
-    check(false, "Exercise-Fixture mit sessionTimeInterval konnte nicht dekodiert werden")
+    check(false, "Exercise-Fixture mit interval konnte nicht dekodiert werden")
 }
-check(HealthAPIClient.parseExercise(["exercise": ["sessionTimeInterval": [:]]]) == nil, "Unvollständiges Workout → nil statt Absturz")
+// Ältere/alternative Struktur "sessionTimeInterval" bleibt als Fallback lesbar.
+let exerciseAlt = jsonDict(#"""
+{ "exercise": { "activityName": "Rad", "sessionTimeInterval": { "startTime": "2026-07-17T08:00:00Z", "endTime": "2026-07-17T08:30:00Z" } } }
+"""#)
+check(HealthAPIClient.parseExercise(exerciseAlt)?.name == "Rad", "Fallback sessionTimeInterval bleibt lesbar")
+check(HealthAPIClient.parseExercise(["exercise": ["interval": [:]]]) == nil, "Unvollständiges Workout → nil statt Absturz")
 
 // MARK: DayKey
 

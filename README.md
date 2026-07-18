@@ -210,7 +210,7 @@ Quellen: [Mandsager 2018](https://jamanetwork.com/journals/jamanetworkopen/fulla
 | Ruhepuls | `daily-resting-heart-rate` | `dailyRestingHeartRate` | Tageswert; Fallback: 5. Perzentil der Nacht-HF |
 | VO₂max | `daily-vo2-max` | `dailyVo2Max` | Cardio-Fitness (ml/kg/min); Fallback: HF-Ratio-Schätzung |
 | Schritte | `steps` | `steps` | Intervall-Samples → Tagessumme |
-| Workouts | `exercise` | `exercise` | Sessions inkl. Ø-Puls/Kalorien; Zeit in `sessionTimeInterval` |
+| Workouts | `exercise` | `exercise` | Filter über `interval.civil_start_time` (Zivilzeit, ohne Z); Ø-Puls/Kalorien |
 
 Der Client probiert je Typ automatisch `…:reconcile` → `list` (Bereichsfilter) →
 `list` (nur Startfilter) und merkt sich die funktionierende Variante. Sollte Google

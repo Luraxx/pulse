@@ -53,9 +53,24 @@ public final class HealthAPIClient: @unchecked Sendable {
         case listFrom
     }
 
+    /// Zeitformat des Filterwerts — je Datentyp unterschiedlich.
+    public enum TimeFilterFormat {
+        case physical      // RFC-3339 mit Z (Sample-/Session-Zeiten, z.B. Schlaf)
+        case civilDate     // "yyyy-MM-dd" (Tagesdatentypen, `date`)
+        case civilDateTime // lokale Zivilzeit ohne Z (z.B. exercise.interval.civil_start_time)
+    }
+
     private static let filterFormatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    private static let civilDateTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
         return f
     }()
 
@@ -66,18 +81,29 @@ public final class HealthAPIClient: @unchecked Sendable {
     ///   - type: kebab-case-Datentyp der URL, z.B. "heart-rate"
     ///   - payloadKey: camelCase-Key des Payloads im Datenpunkt, z.B. "heartRate"
     ///   - filterField: Feldpfad hinter dem Payload-Key, z.B. "sample_time.physical_time"
-    ///   - datesAsCivil: true für Tagesdatentypen (Filterwerte als "yyyy-MM-dd")
+    ///   - timeFormat: Zeitformat des Filterwerts (physisch / Zivildatum / Zivilzeit)
     public func fetchRawDataPoints(
         type: String,
         payloadKey: String,
         filterField: String,
         start: Date,
         end: Date,
-        datesAsCivil: Bool = false
+        timeFormat: TimeFilterFormat = .physical
     ) async throws -> [[String: Any]] {
         let fieldPath = "\(JSONExtract.snakeCase(payloadKey)).\(filterField)"
-        let startValue = datesAsCivil ? DayKey.string(from: start) : Self.filterFormatter.string(from: start)
-        let endValue = datesAsCivil ? DayKey.string(from: end) : Self.filterFormatter.string(from: end)
+        let startValue: String
+        let endValue: String
+        switch timeFormat {
+        case .physical:
+            startValue = Self.filterFormatter.string(from: start)
+            endValue = Self.filterFormatter.string(from: end)
+        case .civilDate:
+            startValue = DayKey.string(from: start)
+            endValue = DayKey.string(from: end)
+        case .civilDateTime:
+            startValue = Self.civilDateTimeFormatter.string(from: start)
+            endValue = Self.civilDateTimeFormatter.string(from: end)
+        }
         let rangeFilter = "\(fieldPath) >= \"\(startValue)\" AND \(fieldPath) <= \"\(endValue)\""
         let fromFilter = "\(fieldPath) >= \"\(startValue)\""
 
@@ -190,7 +216,7 @@ public final class HealthAPIClient: @unchecked Sendable {
             filterField: "date",
             start: start,
             end: end,
-            datesAsCivil: true
+            timeFormat: .civilDate
         )
         var result: [String: Double] = [:]
         for point in points {
@@ -270,21 +296,24 @@ public final class HealthAPIClient: @unchecked Sendable {
 
     /// Workout-/Exercise-Sessions.
     public func fetchExerciseSessions(start: Date, end: Date) async throws -> [Workout] {
+        // Exercise ist filterbar nur über interval.civil_start_time (Zivilzeit,
+        // ISO ohne Z, nur >=/<). Der listFrom-Lesepfad nutzt genau dieses `>=`.
         let points = try await fetchRawDataPoints(
             type: "exercise",
             payloadKey: "exercise",
-            filterField: "session_time_interval.end_time",
+            filterField: "interval.civil_start_time",
             start: start,
-            end: end
+            end: end,
+            timeFormat: .civilDateTime
         )
         return points.compactMap { Self.parseExercise($0) }
     }
 
     public static func parseExercise(_ point: [String: Any]) -> Workout? {
         let payload = (point["exercise"] as? [String: Any]) ?? point
-        // Exercise nutzt "sessionTimeInterval" (nicht "interval" wie Schlaf).
-        let interval = (payload["sessionTimeInterval"] as? [String: Any])
-            ?? (payload["interval"] as? [String: Any]) ?? [:]
+        // Zeitintervall: Google nennt es "interval"; ältere Fixtures "sessionTimeInterval".
+        let interval = (payload["interval"] as? [String: Any])
+            ?? (payload["sessionTimeInterval"] as? [String: Any]) ?? [:]
         guard let start = JSONExtract.date(from: interval["startTime"]) ?? JSONExtract.firstDate(in: payload, keys: ["startTime"]),
               let end = JSONExtract.date(from: interval["endTime"]) ?? JSONExtract.firstDate(in: payload, keys: ["endTime"]) else {
             return nil
