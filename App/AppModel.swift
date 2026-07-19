@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import AuthenticationServices
 import BackgroundTasks
+import UIKit
 
 /// Zentrales App-Modell: hält Store, Auth, Einstellungen und die berechneten
 /// Whoop-Metriken (Recovery, Strain, Schlaf) für alle Views bereit.
@@ -420,33 +421,64 @@ final class AppModel {
         syncing = true
         syncMessage = "Starte…"
         syncFraction = 0
-        defer { syncing = false }
 
-        let client = HealthAPIClient(auth: auth, config: oauthConfig)
-        let engine = SyncEngine(client: client)
-        let outcome = await engine.sync(
-            existingDays: store.days,
-            daysBack: daysBackOverride ?? daysBack,
-            hrDaysBack: hrDaysBackOverride ?? hrDaysBack
-        ) { [weak self] progress in
-            Task { @MainActor in
-                self?.syncMessage = progress.message
-                self?.syncFraction = progress.fraction
+        // Sync gegen Display-Sperre absichern und beim App-Wechsel noch
+        // ~30 s im Hintergrund weiterlaufen lassen (Teilergebnisse werden
+        // ohnehin nach jeder Phase gespeichert).
+        UIApplication.shared.isIdleTimerDisabled = true
+        var bgTask: UIBackgroundTaskIdentifier = .invalid
+        bgTask = UIApplication.shared.beginBackgroundTask(withName: "pulse.sync") {
+            UIApplication.shared.endBackgroundTask(bgTask)
+            bgTask = .invalid
+        }
+        defer {
+            syncing = false
+            UIApplication.shared.isIdleTimerDisabled = false
+            if bgTask != .invalid {
+                UIApplication.shared.endBackgroundTask(bgTask)
             }
         }
 
-        store.replaceAll(outcome.updatedDays)
+        let client = HealthAPIClient(auth: auth, config: oauthConfig)
+        let engine = SyncEngine(client: client)
+
+        // Phase 1: alle Tagesmetriken — danach sofort speichern und anzeigen.
+        let daily = await engine.syncDailyMetrics(
+            existingDays: store.days,
+            daysBack: daysBackOverride ?? daysBack
+        ) { [weak self] progress in
+            Task { @MainActor in
+                self?.syncMessage = progress.message
+                self?.syncFraction = progress.fraction * 0.55
+            }
+        }
+        store.replaceAll(daily.updatedDays)
         store.save()
-        syncLog = outcome.log
-        lastSyncAt = Date()
-        profileName = outcome.profile?.displayName ?? profileName
-        if sex == .unspecified, let profileSex = outcome.profile?.sex, profileSex != .unspecified {
+        syncLog = daily.log
+        profileName = daily.profile?.displayName ?? profileName
+        if sex == .unspecified, let profileSex = daily.profile?.sex, profileSex != .unspecified {
             sex = profileSex // löst recomputeAll() aus
         } else {
             recomputeAll()
         }
 
-        if outcome.hadErrors {
+        // Phase 2: Intraday-Herzfrequenz — nur fehlende Tage, parallel.
+        let hr = await engine.syncIntradayHeartRate(
+            existingDays: store.days,
+            hrDaysBack: hrDaysBackOverride ?? hrDaysBack
+        ) { [weak self] progress in
+            Task { @MainActor in
+                self?.syncMessage = progress.message
+                self?.syncFraction = 0.55 + progress.fraction * 0.45
+            }
+        }
+        store.replaceAll(hr.updatedDays)
+        store.save()
+        syncLog = daily.log + hr.log
+        lastSyncAt = Date()
+        recomputeAll()
+
+        if daily.hadErrors || hr.hadErrors {
             lastError = "Sync mit Warnungen abgeschlossen – Details im Sync-Protokoll."
         }
     }
