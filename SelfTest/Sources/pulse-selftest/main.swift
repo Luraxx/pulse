@@ -481,6 +481,24 @@ let nightSamples = [
 let grouped = SyncEngine.groupByNight(nightSamples)
 check(grouped["2026-07-17"]?.count == 2, "Nacht-Gruppierung fasst Abend + Morgen zusammen")
 
+// Inkrementeller HF-Sync: abgeschlossene Tage werden übersprungen.
+let yesterdayKey = DayKey.addDays(DayKey.today(), -1)
+var completeDay = DayRecord(date: yesterdayKey)
+completeDay.hrSamples = [HRSample(t: DayKey.date(from: yesterdayKey)!, bpm: 60)]
+completeDay.hrSyncedAt = Date() // heute geladen → nach Tagesende von gestern
+check(SyncEngine.isIntradayComplete(completeDay, dayKey: yesterdayKey), "Gestern mit HF-Load von heute → vollständig, wird übersprungen")
+var todayDay = DayRecord(date: DayKey.today())
+todayDay.hrSamples = [HRSample(t: Date(), bpm: 60)]
+todayDay.hrSyncedAt = Date() // Tag läuft noch → Tagesende in der Zukunft
+check(!SyncEngine.isIntradayComplete(todayDay, dayKey: DayKey.today()), "Heute gilt nie als vollständig (Daten wachsen noch)")
+var unstampedDay = DayRecord(date: yesterdayKey)
+unstampedDay.hrSamples = [HRSample(t: DayKey.date(from: yesterdayKey)!, bpm: 60)]
+check(!SyncEngine.isIntradayComplete(unstampedDay, dayKey: yesterdayKey), "Ohne hrSyncedAt-Stempel wird neu geladen")
+check(!SyncEngine.isIntradayComplete(nil, dayKey: yesterdayKey), "Fehlender Tag wird geladen")
+var emptyDay = DayRecord(date: yesterdayKey)
+emptyDay.hrSyncedAt = Date()
+check(!SyncEngine.isIntradayComplete(emptyDay, dayKey: yesterdayKey), "Leerer Tag wird erneut probiert")
+
 // Spike-Filter: isolierte Artefakt-Spitze wird geglättet, Rampe bleibt.
 let spikeSamples = [60.0, 62, 175, 61, 63].enumerated().map {
     HRSample(t: base.addingTimeInterval(Double($0.offset) * 60), bpm: $0.element)
@@ -508,6 +526,9 @@ if let lastKey = sortedKeys.last {
     let original = store.days[lastKey]
     let restored = reloaded.days[lastKey]
     check(original?.hrvRmssd == restored?.hrvRmssd, "HRV übersteht Roundtrip")
+    // ISO-8601-Encoding rundet Dates auf ganze Sekunden → tolerant vergleichen.
+    let hrStampDelta = abs((original?.hrSyncedAt?.timeIntervalSince1970 ?? -1) - (restored?.hrSyncedAt?.timeIntervalSince1970 ?? -2))
+    check(hrStampDelta < 1, "hrSyncedAt übersteht Roundtrip (Sekunden-Präzision)")
     check(original?.sleepSessions.count == restored?.sleepSessions.count, "Schlaf-Sessions überstehen Roundtrip")
     check((restored?.hrSamples.count ?? 0) > 0, "HR-Samples des letzten Tages erhalten")
 }

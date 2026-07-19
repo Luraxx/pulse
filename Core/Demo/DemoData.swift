@@ -130,6 +130,7 @@ public enum DemoData {
                     rhr: rhr,
                     rng: &rng
                 )
+                record.hrSyncedAt = Date()
             }
 
             record.syncedAt = Date()

@@ -211,6 +211,9 @@ public struct DayRecord: Codable, Sendable {
     public var hrSamples: [HRSample]
 
     public var syncedAt: Date?
+    /// Zeitpunkt des letzten Intraday-HF-Loads. Liegt er NACH dem Tagesende,
+    /// ist der Tag vollständig und wird beim nächsten Sync übersprungen.
+    public var hrSyncedAt: Date?
 
     public init(date: String) {
         self.date = date
