@@ -41,6 +41,12 @@ public final class HealthAPIClient: @unchecked Sendable {
     private let lock = NSLock()
     private var workingVariant: [String: ReadVariant] = [:]
 
+    // Globale Drossel: Google erlaubt 300 Requests/min pro Nutzer (~5/s).
+    // Alle Requests – auch parallele – halten einen Mindestabstand ein; ein
+    // 429 verschiebt das Zeitfenster für ALLE Tasks nach hinten (Cooldown).
+    private var nextAllowedRequest = Date.distantPast
+    private let minRequestInterval: TimeInterval = 0.25
+
     public init(auth: GoogleAuth, config: GoogleOAuthConfig, session: URLSession = .shared) {
         self.auth = auth
         self.config = config
@@ -356,6 +362,7 @@ public final class HealthAPIClient: @unchecked Sendable {
         var attempt = 0
         var didRefresh = false
         while true {
+            await throttle()
             let token = try await auth.validAccessToken(config: config)
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
@@ -384,13 +391,29 @@ public final class HealthAPIClient: @unchecked Sendable {
                 didRefresh = true
                 _ = try await auth.refresh(config: config)
                 continue
-            case 429, 500, 502, 503, 504:
+            case 429:
+                // Minuten-Quota erreicht: ALLE Tasks global ausbremsen und
+                // großzügiger erneut versuchen — der Sync soll sich aufs
+                // erlaubte Tempo einpendeln, nicht scheitern.
+                guard attempt < 5 else {
+                    throw APIError.http(http.statusCode, Self.bodyExcerpt(data))
+                }
+                let delay = Self.retryDelay(
+                    attempt: attempt,
+                    retryAfterHeader: http.value(forHTTPHeaderField: "Retry-After")
+                )
+                imposeCooldown(delay)
+                attempt += 1
+                continue
+            case 500, 502, 503, 504:
                 guard attempt < 3 else {
                     throw APIError.http(http.statusCode, Self.bodyExcerpt(data))
                 }
-                let retryAfter = http.value(forHTTPHeaderField: "Retry-After").flatMap(Double.init)
-                    ?? pow(2, Double(attempt + 1))
-                try await Task.sleep(nanoseconds: UInt64(min(retryAfter, 30) * 1_000_000_000))
+                let delay = Self.retryDelay(
+                    attempt: attempt,
+                    retryAfterHeader: http.value(forHTTPHeaderField: "Retry-After")
+                )
+                try await Task.sleep(nanoseconds: UInt64(min(delay, 30) * 1_000_000_000))
                 attempt += 1
                 continue
             default:
@@ -401,5 +424,40 @@ public final class HealthAPIClient: @unchecked Sendable {
 
     private static func bodyExcerpt(_ data: Data) -> String {
         String(String(data: data, encoding: .utf8)?.prefix(300) ?? "")
+    }
+
+    // MARK: - Drossel & Backoff
+
+    /// Reserviert den nächsten Request-Slot und wartet, bis er frei ist.
+    private func throttle() async {
+        let wait: TimeInterval = {
+            lock.lock()
+            defer { lock.unlock() }
+            let now = Date()
+            let slot = max(nextAllowedRequest, now)
+            nextAllowedRequest = slot.addingTimeInterval(minRequestInterval)
+            return slot.timeIntervalSince(now)
+        }()
+        if wait > 0 {
+            try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
+        }
+    }
+
+    /// Nach einem 429: alle weiteren Requests global um `delay` verschieben.
+    private func imposeCooldown(_ delay: TimeInterval) {
+        lock.lock()
+        defer { lock.unlock() }
+        let until = Date().addingTimeInterval(delay)
+        if until > nextAllowedRequest {
+            nextAllowedRequest = until
+        }
+    }
+
+    /// Wartezeit für einen Retry: Retry-After-Header, sonst exponentiell (2,4,8…), Kappung 60 s.
+    public static func retryDelay(attempt: Int, retryAfterHeader: String?) -> TimeInterval {
+        if let header = retryAfterHeader, let seconds = Double(header), seconds > 0 {
+            return min(seconds, 60)
+        }
+        return min(pow(2, Double(attempt + 1)), 60)
     }
 }

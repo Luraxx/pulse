@@ -481,6 +481,13 @@ let nightSamples = [
 let grouped = SyncEngine.groupByNight(nightSamples)
 check(grouped["2026-07-17"]?.count == 2, "Nacht-Gruppierung fasst Abend + Morgen zusammen")
 
+// Rate-Limit-Backoff (Google: 300 Requests/min/Nutzer).
+check(HealthAPIClient.retryDelay(attempt: 0, retryAfterHeader: "7") == 7, "Retry-After-Header wird respektiert")
+check(HealthAPIClient.retryDelay(attempt: 0, retryAfterHeader: nil) == 2, "Ohne Header: exponentiell ab 2 s")
+check(HealthAPIClient.retryDelay(attempt: 2, retryAfterHeader: nil) == 8, "Exponentieller Anstieg (Versuch 3 → 8 s)")
+check(HealthAPIClient.retryDelay(attempt: 9, retryAfterHeader: nil) == 60, "Backoff bei 60 s gekappt")
+check(HealthAPIClient.retryDelay(attempt: 0, retryAfterHeader: "120") == 60, "Retry-After bei 60 s gekappt")
+
 // Inkrementeller HF-Sync: abgeschlossene Tage werden übersprungen.
 let yesterdayKey = DayKey.addDays(DayKey.today(), -1)
 var completeDay = DayRecord(date: yesterdayKey)
