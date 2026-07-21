@@ -194,6 +194,7 @@ struct TodayOverviewCard: View {
         .buttonStyle(.plain)
     }
 
+    @ViewBuilder
     private var cardContent: some View {
         let key = model.selectedDayKey
         let recovery = model.recovery(for: key)
