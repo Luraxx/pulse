@@ -26,16 +26,18 @@ struct RootView: View {
 }
 
 struct MainTabs: View {
+    @Environment(AppModel.self) private var model
+
     var body: some View {
         TabView {
             DashboardView()
-                .tabItem { Label("Heute", systemImage: "gauge.with.needle") }
+                .tabItem { Label(model.loc("Heute", "Today"), systemImage: "gauge.with.needle") }
             TrendsView()
                 .tabItem { Label("Trends", systemImage: "chart.xyaxis.line") }
             HealthMonitorView()
-                .tabItem { Label("Gesundheit", systemImage: "heart.text.square.fill") }
+                .tabItem { Label(model.loc("Gesundheit", "Health"), systemImage: "heart.text.square.fill") }
             SettingsView()
-                .tabItem { Label("Mehr", systemImage: "gearshape.fill") }
+                .tabItem { Label(model.loc("Mehr", "More"), systemImage: "gearshape.fill") }
         }
         .toolbarBackground(Theme.bg, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
