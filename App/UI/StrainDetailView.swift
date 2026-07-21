@@ -26,13 +26,21 @@ struct StrainDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    /// Belastungsziel des Tages aus der Recovery (Whoop-artiger Ziel-Strich).
+    private var targetStrain: Double? {
+        model.recovery(for: model.selectedDayKey).map {
+            StrainEngine.targetStrain(forRecovery: $0.score)
+        }
+    }
+
     private func heroCard(_ strain: StrainResult) -> some View {
         SectionCard {
             VStack(spacing: 8) {
                 ArcGauge(
                     fraction: strain.strain / 21,
                     color: Theme.strainBlue,
-                    lineWidth: 16
+                    lineWidth: 16,
+                    marker: targetStrain.map { $0 / 21 }
                 ) {
                     VStack(spacing: 2) {
                         Text(String(format: "%.1f", strain.strain))
@@ -41,6 +49,11 @@ struct StrainDetailView: View {
                         Text("Strain von 21")
                             .font(.caption)
                             .foregroundStyle(Theme.textSecondary)
+                        if let target = targetStrain {
+                            Text("Ziel \(String(format: "%.1f", target))")
+                                .font(.caption2)
+                                .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                        }
                     }
                 }
                 .frame(width: 180, height: 180)
@@ -56,12 +69,25 @@ struct StrainDetailView: View {
                     StatCell(label: "Aktive Last", value: String(format: "%.0f", strain.rawLoad))
                 }
 
-                Text(strainText(strain.strain))
+                Text(targetText(strain))
                     .font(.footnote)
                     .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
             }
         }
+    }
+
+    /// Einordnung relativ zum Tagesziel (falls vorhanden), sonst absolute Skala.
+    private func targetText(_ strain: StrainResult) -> String {
+        guard let target = targetStrain else { return strainText(strain.strain) }
+        let diff = strain.strain - target
+        if diff >= 1 {
+            return "Ziel erreicht – mehr bringt heute kaum Zusatznutzen, achte auf Erholung."
+        }
+        if diff >= -1 {
+            return "Du bist genau im Zielbereich für deine heutige Recovery."
+        }
+        return String(format: "Der weiße Strich markiert dein Tagesziel (%.1f) – basierend auf deiner Recovery.", target)
     }
 
     private func zonesCard(_ strain: StrainResult) -> some View {

@@ -321,11 +321,14 @@ struct DashboardView: View {
         } label: {
             SectionCard("Tagesbelastung") {
                 if let strain = model.strain(for: model.selectedDayKey) {
+                    let target = model.recovery(for: model.selectedDayKey)
+                        .map { StrainEngine.targetStrain(forRecovery: $0.score) }
                     HStack(spacing: 18) {
                         ArcGauge(
                             fraction: strain.strain / 21,
                             color: Theme.strainBlue,
-                            lineWidth: 12
+                            lineWidth: 12,
+                            marker: target.map { $0 / 21 }
                         ) {
                             VStack(spacing: 0) {
                                 Text(String(format: "%.1f", strain.strain))
@@ -339,6 +342,11 @@ struct DashboardView: View {
                         .frame(width: 108, height: 108)
 
                         VStack(alignment: .leading, spacing: 6) {
+                            if let target {
+                                Text("Ziel heute: \(String(format: "%.1f", target))")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(Theme.strainBlue)
+                            }
                             let active = strain.zoneMinutes.dropFirst(2).reduce(0, +)
                             Text("\(Int(active.rounded())) min fordernd oder härter")
                                 .font(.caption)

@@ -173,6 +173,17 @@ check(s300 > 9 && s300 < 12, "Solides Training ≈ 9–12 (ist \(String(format: 
 check(s900 > 16 && s900 < 19, "Harter Tag ≈ 16–19 (ist \(String(format: "%.1f", s900)))")
 check(s5000 < 21, "Skala bleibt unter 21 (ist \(String(format: "%.2f", s5000)))")
 check(s60 < s300 && s300 < s900 && s900 < s5000, "Strain wächst monoton mit Load")
+// Strain-Ziel aus Recovery (Whoop-Bereiche: Training 14–18, locker 10–14).
+let t90 = StrainEngine.targetStrain(forRecovery: 90)
+let t67 = StrainEngine.targetStrain(forRecovery: 67)
+let t34 = StrainEngine.targetStrain(forRecovery: 34)
+check(t90 >= 17 && t90 <= 18.5, "Recovery 90 → Trainings-Ziel (\(String(format: "%.1f", t90)))")
+check(t67 >= 13 && t67 <= 14, "Recovery 67 → moderates Ziel (\(String(format: "%.1f", t67)))")
+check(t34 >= 6 && t34 <= 8, "Recovery 34 → Erholungs-Ziel (\(String(format: "%.1f", t34)))")
+check(StrainEngine.targetStrain(forRecovery: 5) >= 3, "Ziel-Untergrenze 3")
+check(StrainEngine.targetStrain(forRecovery: 99) <= 18.5, "Ziel-Obergrenze 18,5 (nie All-out)")
+check(t90 > t67 && t67 > t34, "Ziel wächst monoton mit Recovery")
+
 check(StrainEngine.zoneIndex(for: 0.1) == nil, "Unter Zone 0 → kein Load")
 check(StrainEngine.zoneIndex(for: 0.5) == 2, "50 % HRR → Zone 3 (Index 2)")
 check(StrainEngine.zoneIndex(for: 0.99) == 5, "99 % HRR → Maximal-Zone")

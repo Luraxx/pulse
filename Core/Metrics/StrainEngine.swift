@@ -62,6 +62,15 @@ public enum StrainEngine {
         return 21 * (1 - exp(-raw / tau))
     }
 
+    /// Tages-Belastungsziel aus der morgendlichen Recovery (wie Whoops
+    /// „Strain Target": der Strich auf dem Ring). Kalibriert an Whoops
+    /// publizierten Bereichen — Training bei grüner Recovery ~14–18,
+    /// lockere Tage ~10–14, rote Recovery deutlich darunter.
+    /// Transparent linear: 0,2 × Recovery, gedeckelt auf 3…18,5.
+    public static func targetStrain(forRecovery recovery: Int) -> Double {
+        Stats.clamp(0.2 * Double(recovery), 3, 18.5)
+    }
+
     public static func zoneIndex(for fraction: Double) -> Int? {
         var index: Int?
         for (i, bound) in zoneLowerBounds.enumerated() where fraction >= bound {

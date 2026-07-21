@@ -49,11 +49,13 @@ struct RingGauge<Center: View>: View {
     }
 }
 
-/// 270°-Bogen für die Strain-Skala (0–21).
+/// 270°-Bogen für die Strain-Skala (0–21). `marker` (0–1) zeichnet einen
+/// weißen Ziel-Strich auf den Bogen (wie Whoops Strain Target).
 struct ArcGauge<Center: View>: View {
     var fraction: Double // 0–1
     var color: Color
     var lineWidth: CGFloat = 16
+    var marker: Double? = nil
     @ViewBuilder var center: Center
 
     var body: some View {
@@ -66,6 +68,17 @@ struct ArcGauge<Center: View>: View {
                 .trim(from: 0, to: 0.75 * CGFloat(max(0.004, min(1, fraction))))
                 .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(135))
+            if let marker {
+                GeometryReader { geo in
+                    let radius = min(geo.size.width, geo.size.height) / 2
+                    Capsule()
+                        .fill(Color.white.opacity(0.9))
+                        .frame(width: 3, height: lineWidth + 8)
+                        .position(x: geo.size.width / 2, y: geo.size.height / 2 - radius)
+                        // 12-Uhr-Position → Startpunkt (135°) + Anteil des 270°-Bogens.
+                        .rotationEffect(.degrees(Stats.clamp(marker, 0, 1) * 270 - 135))
+                }
+            }
             center
         }
         .padding(lineWidth / 2)
