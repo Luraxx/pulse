@@ -480,35 +480,39 @@ struct StagesTimelineView: View {
                 CGFloat(i) * rowHeight + rowHeight / 2
             }
 
-            // Pill-Tracks je Lane.
+            let spans = sortedStages
+            let cornerRadius: CGFloat = 5
+
+            // 1. Pill-Tracks je Lane (dezenter Hintergrund).
             for i in lanes.indices {
                 let track = CGRect(x: 0, y: laneCenter(i) - blockHeight / 2, width: size.width, height: blockHeight)
                 context.fill(Path(roundedRect: track, cornerRadius: blockHeight / 2), with: .color(Theme.cardElevated))
             }
 
-            let spans = sortedStages
-
-            // Übergangssäulen zuerst (Blöcke liegen darüber).
+            // 2. Übergangssäulen: EINE einheitliche, dezente Farbe. Sie docken
+            //    Kante-an-Kante an und ragen 3 px in die Blöcke, die sie danach
+            //    überdecken → nahtloser Anschluss ohne sichtbaren Versatz.
             for i in 0..<max(0, spans.count - 1) {
                 let from = laneIndex(spans[i].stage)
                 let to = laneIndex(spans[i + 1].stage)
                 guard from != to else { continue }
                 let x = xPos(spans[i + 1].start)
-                let yTop = min(laneCenter(from), laneCenter(to))
-                let yBottom = max(laneCenter(from), laneCenter(to))
-                let column = CGRect(x: x - 1.5, y: yTop, width: 3, height: yBottom - yTop)
-                context.fill(Path(roundedRect: column, cornerRadius: 1.5),
-                             with: .color(Theme.stageColor(spans[i + 1].stage).opacity(0.5)))
+                let top = min(laneCenter(from), laneCenter(to)) + blockHeight / 2 - 3
+                let bottom = max(laneCenter(from), laneCenter(to)) - blockHeight / 2 + 3
+                guard bottom > top else { continue }
+                let riser = CGRect(x: x - 1.25, y: top, width: 2.5, height: bottom - top)
+                context.fill(Path(roundedRect: riser, cornerRadius: 1.25), with: .color(Theme.textSecondary.opacity(0.4)))
             }
 
-            // Abgerundete Blöcke je Phase.
+            // 3. Blöcke je Phase: FESTER Eckradius → auch kurze Phasen bleiben
+            //    saubere Rechtecke (keine Kreise).
             for span in spans {
                 let i = laneIndex(span.stage)
                 let x0 = xPos(span.start)
                 let x1 = xPos(span.end)
                 let block = CGRect(x: x0, y: laneCenter(i) - blockHeight / 2,
-                                   width: max(4, x1 - x0), height: blockHeight)
-                context.fill(Path(roundedRect: block, cornerRadius: blockHeight / 2),
+                                   width: max(6, x1 - x0), height: blockHeight)
+                context.fill(Path(roundedRect: block, cornerRadius: cornerRadius),
                              with: .color(Theme.stageColor(span.stage)))
             }
         }
