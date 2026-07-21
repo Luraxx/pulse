@@ -56,6 +56,7 @@ struct DashboardView: View {
                     alertBanner(alert)
                 }
 
+                TodayOverviewCard()
                 recoveryCard
                 ageCard
                 sleepCard

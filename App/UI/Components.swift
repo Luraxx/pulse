@@ -143,6 +143,110 @@ struct EmptyDataHint: View {
     }
 }
 
+// MARK: - Tages-Übersicht (3 Ringe)
+
+/// Konzentrische Ringe: außen Recovery, Mitte Schlaf-Performance, innen
+/// Strain relativ zum Tagesziel. Einheitliche Skala: „% von dem, was heute
+/// für dich richtig ist".
+struct TripleRingView: View {
+    var recovery: Double?      // 0–1
+    var sleep: Double?         // 0–1
+    var strainOfTarget: Double? // 0–1 (Strain / Tagesziel, gekappt)
+    var recoveryColor: Color
+    var lineWidth: CGFloat = 10
+
+    var body: some View {
+        ZStack {
+            ring(recovery, color: recoveryColor, inset: 0)
+            ring(sleep, color: Theme.sleepPurple, inset: lineWidth + 3)
+            ring(strainOfTarget, color: Theme.strainBlue, inset: 2 * (lineWidth + 3))
+        }
+        .padding(lineWidth / 2)
+    }
+
+    @ViewBuilder
+    private func ring(_ value: Double?, color: Color, inset: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .stroke(color.opacity(0.14), lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: CGFloat(Stats.clamp(value ?? 0, 0.004, 1)))
+                .stroke(
+                    color.opacity(value == nil ? 0.25 : 1),
+                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+        }
+        .padding(inset)
+    }
+}
+
+/// Kompakte „Heute"-Übersicht ganz oben im Dashboard.
+struct TodayOverviewCard: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let key = model.selectedDayKey
+        let recovery = model.recovery(for: key)
+        let sleep = model.sleep(for: key)
+        let strain = model.strain(for: key)
+        let target = recovery.map { StrainEngine.targetStrain(forRecovery: $0.score) }
+
+        SectionCard {
+            HStack(spacing: 18) {
+                TripleRingView(
+                    recovery: recovery.map { Double($0.score) / 100 },
+                    sleep: (sleep?.hasData == true) ? (sleep.map { $0.performance / 100 }) : nil,
+                    strainOfTarget: zip2(strain, target).map { min(1, $0.strain / max($1, 0.1)) },
+                    recoveryColor: recovery.map { Theme.recoveryColor(zone: $0.zone) } ?? Theme.textSecondary
+                )
+                .frame(width: 116, height: 116)
+
+                VStack(alignment: .leading, spacing: 9) {
+                    overviewRow(
+                        color: recovery.map { Theme.recoveryColor(zone: $0.zone) } ?? Theme.textSecondary,
+                        label: "Recovery",
+                        value: recovery.map { "\($0.score) %" } ?? "–"
+                    )
+                    overviewRow(
+                        color: Theme.sleepPurple,
+                        label: "Schlaf",
+                        value: (sleep?.hasData == true) ? "\(Int(sleep!.performance.rounded())) %" : "–"
+                    )
+                    overviewRow(
+                        color: Theme.strainBlue,
+                        label: "Strain",
+                        value: strain.map { s in
+                            target.map { String(format: "%.1f / Ziel %.1f", s.strain, $0) }
+                                ?? String(format: "%.1f", s.strain)
+                        } ?? "–"
+                    )
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private func overviewRow(color: Color, label: String, value: String) -> some View {
+        HStack(spacing: 8) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(Theme.textSecondary)
+            Spacer(minLength: 4)
+            Text(value)
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(Theme.textPrimary)
+        }
+    }
+}
+
+/// Kleines Helferlein: zip für zwei Optionals.
+func zip2<A, B>(_ a: A?, _ b: B?) -> (A, B)? {
+    guard let a, let b else { return nil }
+    return (a, b)
+}
+
 // MARK: - Journal
 
 /// Faktor-Chips für einen Tag — genutzt von der Dashboard-Karte und dem

@@ -9,10 +9,18 @@ enum WidgetBridge {
     enum Key {
         static let score = "recovery.score"
         static let zone = "recovery.zone"
+        static let sleepPerformance = "sleep.performance"
+        static let strain = "strain.value"
+        static let strainTarget = "strain.target"
         static let updatedAt = "recovery.updatedAt"
     }
 
-    static func publish(recovery: RecoveryResult?) {
+    static func publish(
+        recovery: RecoveryResult?,
+        sleepPerformance: Double?,
+        strain: Double?,
+        strainTarget: Double?
+    ) {
         // Nil, wenn die App-Group (noch) nicht bereitsteht → stiller No-Op.
         guard let defaults = UserDefaults(suiteName: appGroup) else { return }
         if let recovery {
@@ -22,7 +30,18 @@ enum WidgetBridge {
             defaults.removeObject(forKey: Key.score)
             defaults.removeObject(forKey: Key.zone)
         }
+        setOrRemove(defaults, sleepPerformance, Key.sleepPerformance)
+        setOrRemove(defaults, strain, Key.strain)
+        setOrRemove(defaults, strainTarget, Key.strainTarget)
         defaults.set(Date().timeIntervalSince1970, forKey: Key.updatedAt)
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private static func setOrRemove(_ defaults: UserDefaults, _ value: Double?, _ key: String) {
+        if let value {
+            defaults.set(value, forKey: key)
+        } else {
+            defaults.removeObject(forKey: key)
+        }
     }
 }

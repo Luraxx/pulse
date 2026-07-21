@@ -378,8 +378,16 @@ final class AppModel {
             selectedDayKey = last
         }
 
-        // Recovery-Snapshot für das Widget aktualisieren.
-        WidgetBridge.publish(recovery: recoveryResults[DayKey.today()])
+        // Tages-Snapshot für die Widgets aktualisieren.
+        let today = DayKey.today()
+        let todayRecovery = recoveryResults[today]
+        let todaySleep = sleepAnalyses[today]
+        WidgetBridge.publish(
+            recovery: todayRecovery,
+            sleepPerformance: (todaySleep?.hasData == true) ? todaySleep?.performance : nil,
+            strain: strainResults[today]?.strain,
+            strainTarget: todayRecovery.map { StrainEngine.targetStrain(forRecovery: $0.score) }
+        )
     }
 
     /// Robuster beobachteter Maxpuls (97,5. Perzentil) über die Intraday-HF des
