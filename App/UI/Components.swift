@@ -412,64 +412,116 @@ struct ZoneBarsView: View {
 
 // MARK: - Schlafphasen-Timeline (Hypnogramm)
 
+/// Hypnogramm im „fließenden" Stil: pro Phase eine Zeile mit Label + Dauer,
+/// abgerundete Blöcke, verbunden durch dünne Übergangssäulen.
 struct StagesTimelineView: View {
     let session: SleepSession
 
     private let lanes: [SleepStage] = [.awake, .rem, .light, .deep]
+    private let rowHeight: CGFloat = 38
+    private let blockHeight: CGFloat = 18
+
+    private func laneIndex(_ stage: SleepStage) -> Int {
+        lanes.firstIndex(of: stage == .unknown ? .light : stage) ?? 2
+    }
+
+    private var sortedStages: [StageSpan] {
+        session.stages.sorted { $0.start < $1.start }
+    }
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                // Label-Spalte: Phase + Dauer, je Zeile so hoch wie eine Lane.
+                VStack(spacing: 0) {
+                    ForEach(lanes, id: \.self) { stage in
+                        VStack(alignment: .leading, spacing: 1) {
+                            HStack(spacing: 5) {
+                                Circle().fill(Theme.stageColor(stage)).frame(width: 7, height: 7)
+                                Text(Theme.stageName(stage))
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(Theme.textPrimary)
+                            }
+                            Text(durationText(session.minutes(in: stage)))
+                                .font(.system(size: 9).monospacedDigit())
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(height: rowHeight)
+                    }
+                }
+                .frame(width: 74)
+
+                hypnogram
+                    .frame(height: CGFloat(lanes.count) * rowHeight)
+            }
+
             HStack {
                 Text(Fmt.clock(session.start))
+                Spacer()
+                Text(Fmt.clock(midTime))
                 Spacer()
                 Text(Fmt.clock(session.end))
             }
             .font(.caption2.monospacedDigit())
             .foregroundStyle(Theme.textSecondary)
+        }
+    }
 
-            Canvas { context, size in
-                let total = session.end.timeIntervalSince(session.start)
-                guard total > 0 else { return }
-                let laneHeight = size.height / CGFloat(lanes.count)
+    private var hypnogram: some View {
+        Canvas { context, size in
+            let total = session.end.timeIntervalSince(session.start)
+            guard total > 0, size.width > 0 else { return }
 
-                // Lane-Hintergrundlinien
-                for index in lanes.indices {
-                    let y = CGFloat(index) * laneHeight + laneHeight / 2
-                    var line = Path()
-                    line.move(to: CGPoint(x: 0, y: y))
-                    line.addLine(to: CGPoint(x: size.width, y: y))
-                    context.stroke(line, with: .color(Theme.stroke.opacity(0.6)), lineWidth: 1)
-                }
-
-                for span in session.stages {
-                    guard let lane = lanes.firstIndex(of: span.stage == .unknown ? .light : span.stage) else { continue }
-                    let x0 = CGFloat(span.start.timeIntervalSince(session.start) / total) * size.width
-                    let x1 = CGFloat(span.end.timeIntervalSince(session.start) / total) * size.width
-                    let rect = CGRect(
-                        x: x0,
-                        y: CGFloat(lane) * laneHeight + 3,
-                        width: max(1.5, x1 - x0),
-                        height: laneHeight - 6
-                    )
-                    context.fill(
-                        Path(roundedRect: rect, cornerRadius: 3),
-                        with: .color(Theme.stageColor(span.stage))
-                    )
-                }
+            func xPos(_ date: Date) -> CGFloat {
+                CGFloat(date.timeIntervalSince(session.start) / total) * size.width
             }
-            .frame(height: 120)
+            func laneCenter(_ i: Int) -> CGFloat {
+                CGFloat(i) * rowHeight + rowHeight / 2
+            }
 
-            HStack(spacing: 14) {
-                ForEach(lanes, id: \.self) { stage in
-                    HStack(spacing: 5) {
-                        Circle().fill(Theme.stageColor(stage)).frame(width: 7, height: 7)
-                        Text(Theme.stageName(stage))
-                            .font(.caption2)
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                }
+            // Pill-Tracks je Lane.
+            for i in lanes.indices {
+                let track = CGRect(x: 0, y: laneCenter(i) - blockHeight / 2, width: size.width, height: blockHeight)
+                context.fill(Path(roundedRect: track, cornerRadius: blockHeight / 2), with: .color(Theme.cardElevated))
+            }
+
+            let spans = sortedStages
+
+            // Übergangssäulen zuerst (Blöcke liegen darüber).
+            for i in 0..<max(0, spans.count - 1) {
+                let from = laneIndex(spans[i].stage)
+                let to = laneIndex(spans[i + 1].stage)
+                guard from != to else { continue }
+                let x = xPos(spans[i + 1].start)
+                let yTop = min(laneCenter(from), laneCenter(to))
+                let yBottom = max(laneCenter(from), laneCenter(to))
+                let column = CGRect(x: x - 1.5, y: yTop, width: 3, height: yBottom - yTop)
+                context.fill(Path(roundedRect: column, cornerRadius: 1.5),
+                             with: .color(Theme.stageColor(spans[i + 1].stage).opacity(0.5)))
+            }
+
+            // Abgerundete Blöcke je Phase.
+            for span in spans {
+                let i = laneIndex(span.stage)
+                let x0 = xPos(span.start)
+                let x1 = xPos(span.end)
+                let block = CGRect(x: x0, y: laneCenter(i) - blockHeight / 2,
+                                   width: max(4, x1 - x0), height: blockHeight)
+                context.fill(Path(roundedRect: block, cornerRadius: blockHeight / 2),
+                             with: .color(Theme.stageColor(span.stage)))
             }
         }
+    }
+
+    private var midTime: Date {
+        Date(timeIntervalSince1970: (session.start.timeIntervalSince1970 + session.end.timeIntervalSince1970) / 2)
+    }
+
+    private func durationText(_ minutes: Double) -> String {
+        let m = Int(minutes.rounded())
+        if m < 60 { return Fmt.language == .de ? "\(m) Min." : "\(m) min" }
+        return "\(m / 60) h \(m % 60) min"
     }
 }
 

@@ -32,10 +32,10 @@ enum Theme {
 
     static func stageColor(_ stage: SleepStage) -> Color {
         switch stage {
-        case .awake: return orange
-        case .rem: return teal
-        case .light: return sleepPurple.opacity(0.75)
-        case .deep: return Color(hex: 0x5B4BD6)
+        case .awake: return Color(hex: 0xF2617A) // Koralle/Rot – wie „Wach"
+        case .rem: return Color(hex: 0x35D0BA)   // Cyan/Teal – wie „REM"
+        case .light: return Color(hex: 0x5B8CFF) // klares Blau – wie „Leicht"
+        case .deep: return Color(hex: 0x6B4BE0)  // sattes Lila – wie „Tief"
         case .unknown: return textSecondary
         }
     }
