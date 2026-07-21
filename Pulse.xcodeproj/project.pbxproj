@@ -16,6 +16,7 @@
 		3578B8E54A9714C1B45C6894 /* PulseWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA7985208FEB4FC2224BE44C /* PulseWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		3663F574FB938BB03103BFCB /* Stats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 491374AA030D97B9F78136C9 /* Stats.swift */; };
 		38A676CCED665F25CCC1EB79 /* SleepEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB7F9DC4414E2D205F93F472 /* SleepEngine.swift */; };
+		3B5A925F694AA781FF4C318B /* OverviewDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B00016197AC3A939C45C072 /* OverviewDetailView.swift */; };
 		4ABDC7476087C37238839FAB /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 217E306BD7099FDFEC77F4A8 /* OnboardingView.swift */; };
 		548D78EDEFF6B875C76D9427 /* AgeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE9F9906ED3D0642B14A78F /* AgeEngine.swift */; };
 		5C919A7C7F8231B11746F567 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B58F4D6CFB8CD7BFBF8591 /* Models.swift */; };
@@ -33,6 +34,7 @@
 		96A9D7DF454B40C5145C8580 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7B7BC30D4CA9B2E1EF827E33 /* Assets.xcassets */; };
 		980A84FA0B3F5A81D17C0897 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 185C24FCADF7A363EDE6C243 /* Theme.swift */; };
 		BB5B76435E0AD4E597B28C01 /* DayKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3A3E554437847879B4E98C /* DayKey.swift */; };
+		BBF3625290CAFE7C5AF8F0EA /* DashboardCustomize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3131905506688A1135561139 /* DashboardCustomize.swift */; };
 		BD97DCCA139ABD7624D298D9 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9C11BCA7D6467713DB530A3 /* RootView.swift */; };
 		D4B0AE05AB3F44713127E6BE /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5F869CF6E95224BAE15673B /* DemoData.swift */; };
 		D5BECFFBF93D3F8D5F5AC10C /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB9FC82DCD4912AC0B64BA6B /* AppModel.swift */; };
@@ -86,6 +88,7 @@
 		27C1E0E2F4E99F8B4B2E111E /* AgeDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgeDetailView.swift; sourceTree = "<group>"; };
 		2C3A3E554437847879B4E98C /* DayKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayKey.swift; sourceTree = "<group>"; };
 		30303E2382307A7D3041DF57 /* RecoveryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryDetailView.swift; sourceTree = "<group>"; };
+		3131905506688A1135561139 /* DashboardCustomize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardCustomize.swift; sourceTree = "<group>"; };
 		315207469E6BFA6F5FCD2B24 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
 		3198D4F823C6CD532863510E /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		3B999AB7DB0079A47B60B6DF /* Pulse.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Pulse.entitlements; sourceTree = "<group>"; };
@@ -95,6 +98,7 @@
 		55E887EC643DBA11B85A6BA0 /* WebAuthenticator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAuthenticator.swift; sourceTree = "<group>"; };
 		5FE9F9906ED3D0642B14A78F /* AgeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgeEngine.swift; sourceTree = "<group>"; };
 		6319E208A395EA35175BD9AE /* GoogleAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAuth.swift; sourceTree = "<group>"; };
+		6B00016197AC3A939C45C072 /* OverviewDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewDetailView.swift; sourceTree = "<group>"; };
 		7815A8398AD4E34260EBFDBF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		7B7BC30D4CA9B2E1EF827E33 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		82ED349698202E45F3883205 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
@@ -222,9 +226,11 @@
 				27C1E0E2F4E99F8B4B2E111E /* AgeDetailView.swift */,
 				0F84C18DF46A68242E67E143 /* ChartViews.swift */,
 				F231EA7C76B1EDAF59639639 /* Components.swift */,
+				3131905506688A1135561139 /* DashboardCustomize.swift */,
 				3198D4F823C6CD532863510E /* DashboardView.swift */,
 				D670DA4B03F9FC5EE6E2539D /* HealthMonitorView.swift */,
 				217E306BD7099FDFEC77F4A8 /* OnboardingView.swift */,
+				6B00016197AC3A939C45C072 /* OverviewDetailView.swift */,
 				30303E2382307A7D3041DF57 /* RecoveryDetailView.swift */,
 				C9C11BCA7D6467713DB530A3 /* RootView.swift */,
 				8E05EF3D7412CEB8BA8BE5C0 /* SettingsView.swift */,
@@ -358,6 +364,7 @@
 				D5BECFFBF93D3F8D5F5AC10C /* AppModel.swift in Sources */,
 				FFC3BBD90F8DFF835349A4DA /* ChartViews.swift in Sources */,
 				110651CAE6A100737CD218BF /* Components.swift in Sources */,
+				BBF3625290CAFE7C5AF8F0EA /* DashboardCustomize.swift in Sources */,
 				DCD6475CDAA4486534D693E7 /* DashboardView.swift in Sources */,
 				BB5B76435E0AD4E597B28C01 /* DayKey.swift in Sources */,
 				D4B0AE05AB3F44713127E6BE /* DemoData.swift in Sources */,
@@ -372,6 +379,7 @@
 				5C919A7C7F8231B11746F567 /* Models.swift in Sources */,
 				D8E7B10D0D41F1A632F600AE /* NotificationManager.swift in Sources */,
 				4ABDC7476087C37238839FAB /* OnboardingView.swift in Sources */,
+				3B5A925F694AA781FF4C318B /* OverviewDetailView.swift in Sources */,
 				FFFF9D3D8DA18F8EEC886614 /* PulseApp.swift in Sources */,
 				615B138B3D2D44E5EDB16214 /* RecoveryDetailView.swift in Sources */,
 				FD9920AE7B13545DD789281C /* RecoveryEngine.swift in Sources */,

@@ -26,6 +26,8 @@ final class AppModel {
         static let lastSync = "sync.lastSyncAt"
         static let notifications = "notify.enabled"
         static let connectedAt = "auth.connectedAt"
+        static let moduleOrder = "dashboard.moduleOrder"
+        static let hiddenModules = "dashboard.hiddenModules"
     }
 
     /// Identifier des Hintergrund-Sync-Tasks (muss in Info.plist unter
@@ -116,6 +118,33 @@ final class AppModel {
     /// Tag, für den das Morgen-Journal-Popup gezeigt werden soll (i. d. R. gestern).
     var journalPromptDay: String?
 
+    // MARK: - Dashboard-Anpassung
+
+    /// Reihenfolge ALLER Module (auch ausgeblendeter).
+    private(set) var moduleOrder: [DashboardModule] = DashboardModule.allCases {
+        didSet { defaults.set(moduleOrder.map(\.rawValue), forKey: Keys.moduleOrder) }
+    }
+    /// Ausgeblendete Module.
+    private(set) var hiddenModules: Set<DashboardModule> = [] {
+        didSet { defaults.set(hiddenModules.map(\.rawValue), forKey: Keys.hiddenModules) }
+    }
+
+    var visibleModules: [DashboardModule] {
+        moduleOrder.filter { !hiddenModules.contains($0) }
+    }
+
+    func moveModules(from source: IndexSet, to destination: Int) {
+        moduleOrder.move(fromOffsets: source, toOffset: destination)
+    }
+
+    func setModule(_ module: DashboardModule, visible: Bool) {
+        if visible {
+            hiddenModules.remove(module)
+        } else {
+            hiddenModules.insert(module)
+        }
+    }
+
     // MARK: - Daten & abgeleitete Metriken
 
     let store: MetricsStore
@@ -151,6 +180,18 @@ final class AppModel {
         notificationsEnabled = defaults.bool(forKey: Keys.notifications)
         connectedAt = (defaults.object(forKey: Keys.connectedAt) as? Double).map(Date.init(timeIntervalSince1970:))
         selectedDayKey = DayKey.today()
+
+        // Modul-Reihenfolge laden; neue Module (künftiger Versionen) hinten anfügen.
+        var order = (defaults.stringArray(forKey: Keys.moduleOrder) ?? [])
+            .compactMap(DashboardModule.init(rawValue:))
+        for module in DashboardModule.allCases where !order.contains(module) {
+            order.append(module)
+        }
+        moduleOrder = order
+        hiddenModules = Set(
+            (defaults.stringArray(forKey: Keys.hiddenModules) ?? [])
+                .compactMap(DashboardModule.init(rawValue:))
+        )
 
         recomputeAll()
     }

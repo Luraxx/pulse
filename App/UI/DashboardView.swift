@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @Environment(AppModel.self) private var model
+    @State private var showCustomize = false
 
     var body: some View {
         NavigationStack {
@@ -24,6 +25,13 @@ struct DashboardView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showCustomize = true
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     if model.isConnected {
                         Button {
                             Task { await model.syncNow() }
@@ -37,6 +45,9 @@ struct DashboardView: View {
                         .disabled(model.syncing)
                     }
                 }
+            }
+            .sheet(isPresented: $showCustomize) {
+                DashboardCustomizeSheet()
             }
         }
     }
@@ -56,13 +67,9 @@ struct DashboardView: View {
                     alertBanner(alert)
                 }
 
-                TodayOverviewCard()
-                recoveryCard
-                ageCard
-                sleepCard
-                strainCard
-                healthCard
-                JournalCard()
+                ForEach(model.visibleModules) { module in
+                    moduleView(module)
+                }
                 footer
             }
             .padding(.horizontal, 16)
@@ -72,6 +79,23 @@ struct DashboardView: View {
             if model.isConnected {
                 await model.syncNow()
             }
+        }
+    }
+
+    // MARK: - Module
+
+    @ViewBuilder
+    private func moduleView(_ module: DashboardModule) -> some View {
+        switch module {
+        case .overview: TodayOverviewCard()
+        case .recovery: recoveryCard
+        case .age: ageCard
+        case .sleep: sleepCard
+        case .strain: strainCard
+        case .workouts: WorkoutsCard()
+        case .steps: StepsCard()
+        case .health: healthCard
+        case .journal: JournalCard()
         }
     }
 

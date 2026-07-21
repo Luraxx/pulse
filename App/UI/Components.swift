@@ -181,11 +181,20 @@ struct TripleRingView: View {
     }
 }
 
-/// Kompakte „Heute"-Übersicht ganz oben im Dashboard.
+/// Kompakte „Heute"-Übersicht ganz oben im Dashboard (tippbar → große Ringe).
 struct TodayOverviewCard: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        NavigationLink {
+            OverviewDetailView()
+        } label: {
+            cardContent
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var cardContent: some View {
         let key = model.selectedDayKey
         let recovery = model.recovery(for: key)
         let sleep = model.sleep(for: key)
