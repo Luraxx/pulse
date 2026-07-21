@@ -488,23 +488,28 @@ check(HealthAPIClient.retryDelay(attempt: 2, retryAfterHeader: nil) == 8, "Expon
 check(HealthAPIClient.retryDelay(attempt: 9, retryAfterHeader: nil) == 60, "Backoff bei 60 s gekappt")
 check(HealthAPIClient.retryDelay(attempt: 0, retryAfterHeader: "120") == 60, "Retry-After bei 60 s gekappt")
 
-// Inkrementeller HF-Sync: abgeschlossene Tage werden übersprungen.
+// Inkrementeller HF-Sync: geprüfte Vergangenheitstage werden übersprungen.
+let oldKey = DayKey.addDays(DayKey.today(), -3)
+var oldFull = DayRecord(date: oldKey)
+oldFull.hrSamples = [HRSample(t: DayKey.date(from: oldKey)!, bpm: 60)]
+oldFull.hrSyncedAt = Date() // nach Tagesende geprüft
+check(SyncEngine.isIntradayComplete(oldFull, dayKey: oldKey), "Alter Tag mit Daten, nach Tagesende geprüft → übersprungen")
+var oldEmpty = DayRecord(date: oldKey)
+oldEmpty.hrSyncedAt = Date() // leer, aber geprüft
+check(SyncEngine.isIntradayComplete(oldEmpty, dayKey: oldKey), "Alter LEERER Tag, einmal geprüft → wird NICHT erneut geladen")
 let yesterdayKey = DayKey.addDays(DayKey.today(), -1)
-var completeDay = DayRecord(date: yesterdayKey)
-completeDay.hrSamples = [HRSample(t: DayKey.date(from: yesterdayKey)!, bpm: 60)]
-completeDay.hrSyncedAt = Date() // heute geladen → nach Tagesende von gestern
-check(SyncEngine.isIntradayComplete(completeDay, dayKey: yesterdayKey), "Gestern mit HF-Load von heute → vollständig, wird übersprungen")
+var yest = DayRecord(date: yesterdayKey)
+yest.hrSamples = [HRSample(t: DayKey.date(from: yesterdayKey)!, bpm: 60)]
+yest.hrSyncedAt = Date()
+check(!SyncEngine.isIntradayComplete(yest, dayKey: yesterdayKey), "Gestern wird immer neu geladen (verspätete Uhr-Daten)")
 var todayDay = DayRecord(date: DayKey.today())
 todayDay.hrSamples = [HRSample(t: Date(), bpm: 60)]
-todayDay.hrSyncedAt = Date() // Tag läuft noch → Tagesende in der Zukunft
-check(!SyncEngine.isIntradayComplete(todayDay, dayKey: DayKey.today()), "Heute gilt nie als vollständig (Daten wachsen noch)")
-var unstampedDay = DayRecord(date: yesterdayKey)
-unstampedDay.hrSamples = [HRSample(t: DayKey.date(from: yesterdayKey)!, bpm: 60)]
-check(!SyncEngine.isIntradayComplete(unstampedDay, dayKey: yesterdayKey), "Ohne hrSyncedAt-Stempel wird neu geladen")
-check(!SyncEngine.isIntradayComplete(nil, dayKey: yesterdayKey), "Fehlender Tag wird geladen")
-var emptyDay = DayRecord(date: yesterdayKey)
-emptyDay.hrSyncedAt = Date()
-check(!SyncEngine.isIntradayComplete(emptyDay, dayKey: yesterdayKey), "Leerer Tag wird erneut probiert")
+todayDay.hrSyncedAt = Date()
+check(!SyncEngine.isIntradayComplete(todayDay, dayKey: DayKey.today()), "Heute gilt nie als vollständig")
+var oldUnstamped = DayRecord(date: oldKey)
+oldUnstamped.hrSamples = [HRSample(t: DayKey.date(from: oldKey)!, bpm: 60)]
+check(!SyncEngine.isIntradayComplete(oldUnstamped, dayKey: oldKey), "Ohne hrSyncedAt-Stempel wird geladen")
+check(!SyncEngine.isIntradayComplete(nil, dayKey: oldKey), "Fehlender Tag wird geladen")
 
 // Spike-Filter: isolierte Artefakt-Spitze wird geglättet, Rampe bleibt.
 let spikeSamples = [60.0, 62, 175, 61, 63].enumerated().map {

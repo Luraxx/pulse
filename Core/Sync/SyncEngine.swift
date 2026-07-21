@@ -318,11 +318,15 @@ public final class SyncEngine: @unchecked Sendable {
 
     // MARK: - Phase 2: Intraday-Herzfrequenz
 
-    /// Ein Tag gilt als vollständig geladen, wenn Samples existieren und der
-    /// letzte HF-Load NACH dem Tagesende lag — dann kann nichts mehr dazukommen
-    /// und der Tag wird bei künftigen Syncs übersprungen.
+    /// Ist die Intraday-HF dieses Tages erledigt (→ beim Sync überspringen)?
+    /// - Heute und gestern werden IMMER neu geladen (die Uhr synct oft mit
+    ///   Verzögerung in die Google-Health-App).
+    /// - Ältere Tage gelten als erledigt, sobald sie einmal NACH ihrem Tagesende
+    ///   geprüft wurden — **auch wenn der Tag leer blieb**. Sonst würden nie
+    ///   getragene Vergangenheitstage bei jedem Sync erneut abgefragt.
     public static func isIntradayComplete(_ record: DayRecord?, dayKey: String) -> Bool {
-        guard let record, !record.hrSamples.isEmpty, let hrSyncedAt = record.hrSyncedAt,
+        if dayKey >= DayKey.addDays(DayKey.today(), -1) { return false }
+        guard let record, let hrSyncedAt = record.hrSyncedAt,
               let dayStart = DayKey.date(from: dayKey) else { return false }
         return hrSyncedAt >= dayStart.addingTimeInterval(24 * 3600)
     }
@@ -388,17 +392,17 @@ public final class SyncEngine: @unchecked Sendable {
             for await (key, result) in group {
                 switch result {
                 case .success(let samples):
+                    var record = days[key] ?? DayRecord(date: key)
                     if !samples.isEmpty {
-                        let downsampled = Self.removeSpikes(Self.downsampleToMinutes(samples))
-                        var record = days[key] ?? DayRecord(date: key)
-                        record.hrSamples = downsampled
-                        record.hrSyncedAt = syncStamp
+                        record.hrSamples = Self.removeSpikes(Self.downsampleToMinutes(samples))
                         record.syncedAt = syncStamp
-                        days[key] = record
                         loaded += 1
                     }
-                    // Leere Tage NICHT als vollständig markieren — Daten können
-                    // später noch von der Uhr in die Google-Health-App kommen.
+                    // Auch leere Tage stempeln → vergangene, nie getragene Tage
+                    // werden nicht bei jedem Sync erneut abgefragt (heute/gestern
+                    // laufen ohnehin immer, siehe isIntradayComplete).
+                    record.hrSyncedAt = syncStamp
+                    days[key] = record
                 case .failure(let error):
                     failed += 1
                     if firstError == nil { firstError = Self.describe(error) }
