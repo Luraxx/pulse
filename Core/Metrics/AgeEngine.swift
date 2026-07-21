@@ -218,7 +218,8 @@ public enum AgeEngine {
     /// Uth-Proportionalitätsfaktor der Herzfrequenz-Ratio-Methode.
     static let uthFactor = 15.3
 
-    public static func compute(dateKey: String, inputs: AgeInputs) -> AgeResult {
+    public static func compute(dateKey: String, inputs: AgeInputs, language: PulseLanguage = .de) -> AgeResult {
+        let de = (language == .de)
         let chrono = Double(inputs.chronoAge)
         let have = min(inputs.validDayCount, calibrationNeed)
 
@@ -291,11 +292,12 @@ public enum AgeEngine {
 
         var components: [AgeComponent] = []
         if let vo2, let fitnessAge {
+            let estimated = vo2Estimated ? (de ? " (geschätzt)" : " (estimated)") : ""
             components.append(AgeComponent(
                 key: "fitness",
-                label: "Fitness (VO₂max)",
-                detail: String(format: "%.0f ml/kg/min%@ · Fitness-Alter %.0f",
-                               vo2, vo2Estimated ? " (geschätzt)" : "", fitnessAge),
+                label: de ? "Fitness (VO₂max)" : "Fitness (VO₂max)",
+                detail: String(format: de ? "%.0f ml/kg/min%@ · Fitness-Alter %.0f" : "%.0f ml/kg/min%@ · fitness age %.0f",
+                               vo2, estimated, fitnessAge),
                 deltaYears: fitnessAge - chrono,
                 kind: .equivalent
             ))
@@ -304,7 +306,7 @@ public enum AgeEngine {
             components.append(AgeComponent(
                 key: "hrv",
                 label: "HRV",
-                detail: String(format: "%.0f ms · HRV-Alter %.0f", rmssd, hrvAge),
+                detail: String(format: de ? "%.0f ms · HRV-Alter %.0f" : "%.0f ms · HRV age %.0f", rmssd, hrvAge),
                 deltaYears: hrvAge - chrono,
                 kind: .equivalent
             ))
@@ -312,8 +314,8 @@ public enum AgeEngine {
         if let rhrDelta, let rhr = median(inputs.restingHRValues) {
             components.append(AgeComponent(
                 key: "rhr",
-                label: "Ruhepuls",
-                detail: String(format: "%.0f S/min", rhr),
+                label: de ? "Ruhepuls" : "Resting HR",
+                detail: String(format: de ? "%.0f S/min" : "%.0f bpm", rhr),
                 deltaYears: rhrDelta,
                 kind: .adjustment
             ))
@@ -321,8 +323,8 @@ public enum AgeEngine {
         if let sleepDelta {
             components.append(AgeComponent(
                 key: "sleep",
-                label: "Schlaf",
-                detail: String(format: "Ø %.0f %% Performance", Stats.mean(inputs.sleepPerformances)),
+                label: de ? "Schlaf" : "Sleep",
+                detail: String(format: de ? "Ø %.0f %% Performance" : "avg %.0f %% performance", Stats.mean(inputs.sleepPerformances)),
                 deltaYears: sleepDelta,
                 kind: .adjustment
             ))
@@ -330,8 +332,8 @@ public enum AgeEngine {
         if let activityDelta {
             components.append(AgeComponent(
                 key: "activity",
-                label: "Aktivität",
-                detail: String(format: "Ø %.0f Schritte/Tag", Stats.mean(inputs.stepsValues)),
+                label: de ? "Aktivität" : "Activity",
+                detail: String(format: de ? "Ø %.0f Schritte/Tag" : "avg %.0f steps/day", Stats.mean(inputs.stepsValues)),
                 deltaYears: activityDelta,
                 kind: .adjustment
             ))

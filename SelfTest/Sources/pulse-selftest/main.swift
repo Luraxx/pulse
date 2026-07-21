@@ -160,6 +160,41 @@ if let baseline = Stats.baseline([60, 62, 64, 66, 68]) {
 }
 check(Stats.baseline([1, 2]) == nil, "Baseline braucht mindestens 3 Werte")
 
+// MARK: Sprachen
+
+section("Sprachen (DE/EN)")
+check(JournalFactor.alcohol.label(.de) == "Alkohol" && JournalFactor.alcohol.label(.en) == "Alcohol", "JournalFactor zweisprachig")
+check(BiologicalSex.male.label(.en) == "Male", "BiologicalSex englisch")
+check(HealthMetricKind.restingHR.label(.en) == "Resting HR" && HealthMetricKind.restingHR.unit(.en) == "bpm", "HealthMetricKind englisch inkl. Einheit")
+check(StrainEngine.zoneLabels(.en).count == StrainEngine.zoneLabels.count, "Zonen-Labels: EN-Liste vollständig")
+// Eigene lokale Inputs — fitInputs/healthRecord sind hier noch nicht initialisiert
+// (main.swift-Top-Level läuft sequenziell; Vorwärts-Zugriff wäre ein Segfault).
+let langInputs = AgeInputs(
+    chronoAge: 30, sex: .male,
+    vo2maxValues: [52, 51, 53, 52, 54],
+    rmssdValues: Array(repeating: 57, count: 10),
+    restingHRValues: Array(repeating: 51, count: 10),
+    sleepPerformances: [88, 90, 87, 91],
+    stepsValues: [12000, 11500, 12500],
+    validDayCount: 30
+)
+let deAge = AgeEngine.compute(dateKey: "2026-07-18", inputs: langInputs, language: .de)
+let enAge = AgeEngine.compute(dateKey: "2026-07-18", inputs: langInputs, language: .en)
+check(enAge.components.contains { $0.label == "Resting HR" || $0.label == "Sleep" || $0.label == "Activity" }, "AgeEngine-Komponenten auf Englisch")
+check(enAge.pulseAge == deAge.pulseAge, "Sprache ändert nur Texte, nie Werte")
+func langHealthRecord(_ key: String, rhr: Double, resp: Double) -> DayRecord {
+    var r = DayRecord(date: key)
+    r.restingHR = rhr; r.respiratoryRate = resp; r.hrvRmssd = 60; r.spo2Avg = 97; r.bodyTemp = 34
+    return r
+}
+var langAlertRecords = (0..<8).map { langHealthRecord(DayKey.addDays("2026-06-01", $0), rhr: 55, resp: 14) }
+langAlertRecords.append(langHealthRecord(DayKey.addDays("2026-06-01", 8), rhr: 70, resp: 18))
+if let enAlert = HealthMonitor.alert(records: langAlertRecords, language: .en) {
+    check(enAlert.message.contains("outside your baseline"), "Health-Alert englisch formuliert")
+} else {
+    check(false, "EN-Health-Alert fehlt")
+}
+
 // MARK: Trend-Aggregation
 
 section("Trend-Aggregation")
