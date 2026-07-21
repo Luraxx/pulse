@@ -180,9 +180,12 @@ final class AppModel {
         store = MetricsStore(directory: directory)
         journal = JournalStore(directory: directory)
 
-        language = defaults.string(forKey: Keys.language).flatMap(PulseLanguage.init(rawValue:))
+        // Lokale Konstante, damit unten nicht self.language (Observable-Getter)
+        // gelesen wird, bevor alle Stored Properties initialisiert sind.
+        let initialLanguage = defaults.string(forKey: Keys.language).flatMap(PulseLanguage.init(rawValue:))
             ?? .systemDefault
-        Fmt.language = language
+        language = initialLanguage
+        Fmt.language = initialLanguage
 
         clientID = defaults.string(forKey: Keys.clientID) ?? ""
         onboarded = defaults.bool(forKey: Keys.onboarded)
