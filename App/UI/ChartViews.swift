@@ -166,13 +166,14 @@ struct StrainLineChart: View {
 struct SleepTrendChart: View {
     let slept: [TrendPoint] // Minuten
     let need: [TrendPoint]  // Minuten
+    var barUnit: Calendar.Component = .day
     var height: CGFloat = 150
 
     var body: some View {
         Chart {
             ForEach(slept) { point in
                 BarMark(
-                    x: .value("Tag", point.date, unit: .day),
+                    x: .value("Tag", point.date, unit: barUnit),
                     y: .value("Stunden", point.value / 60)
                 )
                 .foregroundStyle(Theme.sleepPurple.opacity(0.85))
@@ -254,6 +255,8 @@ struct RecoveryStrainChart: View {
     var showStrainSymbols = true
     /// Zusatz in der Legende, z. B. "Wochenmittel" oder "7-Tage-Schnitt".
     var aggregationNote: String? = nil
+    /// Balkenbreite: Tag (Standard) oder Woche (bei Wochenmittel-Aggregation).
+    var barUnit: Calendar.Component = .day
     var height: CGFloat = 170
 
     var body: some View {
@@ -261,7 +264,7 @@ struct RecoveryStrainChart: View {
             Chart {
                 ForEach(recovery) { point in
                     BarMark(
-                        x: .value("Tag", point.date, unit: .day),
+                        x: .value("Tag", point.date, unit: barUnit),
                         y: .value("Recovery", point.value)
                     )
                     .foregroundStyle(Theme.recoveryColor(score: Int(point.value)).opacity(barOpacity))

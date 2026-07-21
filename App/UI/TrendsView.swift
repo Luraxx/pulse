@@ -209,7 +209,8 @@ struct TrendsView: View {
                     RecoveryStrainChart(
                         recovery: recoveryPoints,
                         strain: strainPoints,
-                        aggregationNote: model.loc("Wochenmittel", "Weekly average")
+                        aggregationNote: model.loc("Wochenmittel", "Weekly average"),
+                        barUnit: .weekOfYear
                     )
                 } else {
                     RecoveryStrainChart(recovery: recoveryPoints, strain: strainPoints)
@@ -226,7 +227,7 @@ struct TrendsView: View {
     private var sleepCard: some View {
         SectionCard(model.loc("Schlafdauer vs. Bedarf", "Sleep vs. need")) {
             if sleepPoints.count >= 2 {
-                SleepTrendChart(slept: sleepPoints, need: needPoints)
+                SleepTrendChart(slept: sleepPoints, need: needPoints, barUnit: isWeekly ? .weekOfYear : .day)
                 weeklyNote
             } else {
                 EmptyDataHint(text: model.loc("Noch zu wenige Nächte.", "Not enough nights yet."))
