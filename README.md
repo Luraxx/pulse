@@ -1,9 +1,13 @@
-# Pulse — a personal Whoop for the Fitbit Air
+# Pulse — an open-source, Whoop-style readiness tracker for the Fitbit Air
 
 Pulse is a private iOS app that reads your **Google Fitbit Air** data through the
-new **Google Health API** and turns it into Whoop-style daily readiness metrics —
-recovery, strain, sleep and a biological "Pulse Age". Everything is computed on
-device against your own baseline. No server, no subscription, no tracking.
+new **Google Health API** and turns it into daily readiness metrics — recovery,
+strain, sleep and a biological "Pulse Age". Everything is computed on device
+against your own baseline. No server, no subscription, no tracking.
+
+> **Not affiliated with WHOOP, Google or Fitbit.** "Whoop-style" describes the
+> *kind* of metrics (recovery / strain / sleep readiness); it does not imply any
+> connection. See [Disclaimer](#disclaimer). Licensed under **Apache-2.0**.
 
 <p align="center">
   <img src="docs/screenshots/today.png" alt="Today — recovery score, health alert and Pulse Age" width="270">
@@ -69,8 +73,11 @@ Health**, paste your OAuth client ID (iOS client, bundle id `net.dehlwes.pulse`,
 PKCE — no client secret), sign in, done. No Google setup? Start **Demo mode** for 120
 days of realistic sample data.
 
-The one-time Google Cloud setup (project, scopes, iOS client id) is documented step by
-step in [`README.de.md`](README.de.md).
+> **Bring your own Google Cloud project.** There is no shared backend or API key in
+> this repository — Pulse uses PKCE and stores nothing server-side. Every user
+> creates their own Google Cloud project and iOS OAuth client and stays subject to
+> Google's API terms. The one-time setup (project, scopes, iOS client id) is
+> documented step by step in [`README.de.md`](README.de.md).
 
 ## Project structure
 
@@ -95,12 +102,33 @@ cd SelfTest && swift run pulse-selftest
 ## Roadmap
 
 - Live "stress monitor" from intraday HRV/HR deviation
-- Behaviour journal with correlations (à la Whoop Journal)
-- Watch complication
+- Apple Watch complication
 - Webhook subscriptions instead of polling
 - Export (CSV / Health Connect)
 
----
+## Contributing
 
-*Private project — provided as-is, for personal use. Not a medical device; the scores
-are orientations, not diagnoses.*
+Personal hobby project, shared as-is — issues and pull requests are welcome but may
+be answered slowly. By contributing you agree your changes are licensed under
+Apache-2.0. There is intentionally no analytics, telemetry or server component;
+please keep it that way.
+
+## Disclaimer
+
+- **Not a medical device.** Pulse is for personal, informational use only. The
+  scores (recovery, strain, sleep, Pulse Age, health monitor) are orientations, not
+  diagnoses. They are not validated against clinical standards and must not be used
+  to make medical decisions. If you feel unwell, talk to a doctor, not an app.
+- **No affiliation.** WHOOP is a trademark of WHOOP, Inc.; Google, Fitbit and Google
+  Health are trademarks of Google LLC. This project is independent and not
+  affiliated with, endorsed by or sponsored by any of them. Product names are used
+  purely descriptively. The metric methodology is built from publicly published
+  research (cited in [`README.de.md`](README.de.md)), not from any company's
+  proprietary algorithms.
+- **No warranty.** Provided "AS IS", without warranty of any kind (see the License).
+
+## License
+
+Licensed under the **Apache License 2.0** — see [`LICENSE`](LICENSE) and
+[`NOTICE`](NOTICE). Apache-2.0 is permissive (use, modify and redistribute freely,
+including commercially) and adds an explicit patent grant and a trademark clause.

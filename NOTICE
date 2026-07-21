@@ -1,0 +1,23 @@
+Pulse
+Copyright 2026 Luraxx (https://github.com/Luraxx)
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this project except in compliance with the License.
+A copy of the License is provided in the LICENSE file.
+
+--------------------------------------------------------------------------------
+Trademarks
+
+WHOOP is a trademark of WHOOP, Inc. Google, Fitbit, Fitbit Air and Google Health
+are trademarks of Google LLC. This project is an independent, non-commercial
+hobby project. It is NOT affiliated with, endorsed by, sponsored by, or connected
+to WHOOP, Inc., Google LLC, or Fitbit. All product names are used only for
+descriptive purposes to explain what the app does and which service it reads from.
+
+--------------------------------------------------------------------------------
+Scientific references
+
+The metric methodology is derived from publicly published research, not from any
+third party's proprietary algorithms. Sources are cited in README.de.md
+(FRIEND registry / Kaminsky 2015; Mandsager, JAMA Netw Open 2018; Uth 2004;
+Zhang, CMAJ 2016; Tanaka 2001; Karvonen).

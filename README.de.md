@@ -1,7 +1,12 @@
-# Pulse — dein persönliches Whoop für die Fitbit Air
+# Pulse — Whoop-artiger Readiness-Tracker für die Fitbit Air (Open Source)
+
+> **Nicht mit WHOOP, Google oder Fitbit verbunden.** „Whoop-artig" beschreibt die
+> *Art* der Metriken (Recovery / Strain / Schlaf-Readiness), keine Verbindung.
+> Kein Medizinprodukt – Details unter [Haftungsausschluss](#haftungsausschluss).
+> Lizenz: **Apache-2.0** ([`LICENSE`](LICENSE), [`NOTICE`](NOTICE)).
 
 Pulse ist eine private iOS-App, die die Daten deiner **Google Fitbit Air** über die
-**Google Health API** liest und daraus Whoop-artige Metriken berechnet:
+**Google Health API** liest und daraus folgende Metriken berechnet:
 
 - **Recovery-Score (1–99 %)** aus HRV, Ruhepuls, Schlafperformance und Atemfrequenz —
   jeweils gegen deine persönliche 30-Tage-Baseline
@@ -241,7 +246,29 @@ Strings in [SyncEngine.swift](Core/Sync/SyncEngine.swift) an.
 ## Roadmap-Ideen
 
 - Live-„Stress-Monitor“ aus Tages-HRV/HF-Abweichung
-- Verhaltens-Journal mit Korrelationen (à la Whoop Journal)
-- Home-Screen-Widget + Watch-Komplikation
+- Watch-Komplikation
 - Webhook-Subscriptions statt Polling (`v4/projects/*/subscribers`)
 - Export (CSV/Health Connect)
+
+## Haftungsausschluss
+
+- **Kein Medizinprodukt.** Pulse dient rein persönlichen, informativen Zwecken. Alle
+  Scores (Recovery, Strain, Schlaf, Pulse Alter, Health-Monitor) sind Orientierung,
+  keine Diagnose. Sie sind nicht klinisch validiert und dürfen nicht für medizinische
+  Entscheidungen genutzt werden. Bei Beschwerden bitte an ärztliches Fachpersonal
+  wenden, nicht an eine App.
+- **Keine Verbindung.** WHOOP ist eine Marke von WHOOP, Inc.; Google, Fitbit und
+  Google Health sind Marken von Google LLC. Dieses Projekt ist unabhängig und weder
+  mit ihnen verbunden noch von ihnen unterstützt. Produktnamen werden ausschließlich
+  beschreibend verwendet. Die Metrik-Methodik stammt aus öffentlich publizierter
+  Forschung (oben zitiert), nicht aus proprietären Algorithmen eines Unternehmens.
+- **Eigenes Google-Cloud-Projekt.** Es gibt keinen geteilten Backend-Zugang oder
+  API-Key im Repo (PKCE, kein Secret). Jede Person legt ihr eigenes Google-Cloud-
+  Projekt an und unterliegt Googles API-Nutzungsbedingungen.
+- **Keine Gewähr.** Bereitgestellt „AS IS“, ohne jede Gewährleistung (siehe Lizenz).
+
+## Lizenz
+
+**Apache-2.0** – siehe [`LICENSE`](LICENSE) und [`NOTICE`](NOTICE). Permissiv (freie
+Nutzung, Änderung, Weitergabe – auch kommerziell), mit ausdrücklicher Patent- und
+Marken-Klausel.
