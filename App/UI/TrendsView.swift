@@ -13,9 +13,9 @@ struct TrendsView: View {
                 ScrollView {
                     VStack(spacing: 14) {
                         Picker("Zeitraum", selection: $range) {
-                            Text("7 Tage").tag(7)
-                            Text("30 Tage").tag(30)
-                            Text("90 Tage").tag(90)
+                            Text(model.loc("7 Tage", "7 days")).tag(7)
+                            Text(model.loc("30 Tage", "30 days")).tag(30)
+                            Text(model.loc("90 Tage", "90 days")).tag(90)
                         }
                         .pickerStyle(.segmented)
 
@@ -27,7 +27,7 @@ struct TrendsView: View {
                             rhrCard
                             journalInsightsCard
                         } else {
-                            EmptyDataHint(text: "Keine Daten vorhanden.")
+                            EmptyDataHint(text: model.loc("Keine Daten vorhanden.", "No data available."))
                         }
                     }
                     .padding(.horizontal, 16)
@@ -39,11 +39,11 @@ struct TrendsView: View {
     }
 
     private var journalInsightsCard: some View {
-        SectionCard("Journal-Korrelationen") {
+        SectionCard(model.loc("Journal-Korrelationen", "Journal correlations")) {
             let ready = model.recoveryDayCount >= JournalEngine.assessmentMinRecoveryDays
             if model.journalInsights.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    EmptyDataHint(text: "Hake im Tab Heute deine Faktoren ab. Ein Zusammenhang erscheint, sobald ein Faktor an mind. 5 Tagen an- UND 5 Tagen abgehakt war.")
+                    EmptyDataHint(text: model.loc("Hake im Tab Heute deine Faktoren ab. Ein Zusammenhang erscheint, sobald ein Faktor an mind. 5 Tagen an- UND 5 Tagen abgehakt war.", "Check off factors in the Today tab. A correlation appears once a factor was checked on at least 5 days AND unchecked on 5 days."))
                     if !ready {
                         assessmentProgress
                     }
@@ -53,10 +53,10 @@ struct TrendsView: View {
                     ForEach(model.journalInsights) { insight in
                         VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 6) {
-                                Label(insight.factor.label, systemImage: insight.factor.symbol)
+                                Label(insight.factor.label(model.language), systemImage: insight.factor.symbol)
                                     .font(.subheadline)
                                     .foregroundStyle(Theme.textPrimary)
-                                Text(insight.confidence == .solid ? "belastbar" : "Tendenz")
+                                Text(insight.confidence == .solid ? model.loc("belastbar", "solid") : model.loc("Tendenz", "trend"))
                                     .font(.caption2)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
@@ -69,7 +69,7 @@ struct TrendsView: View {
                                     .font(.system(.subheadline, design: .rounded).monospacedDigit().weight(.bold))
                                     .foregroundStyle(insight.delta < 0 ? Theme.red : Theme.green)
                             }
-                            Text("Ø Recovery danach: \(Int(insight.avgWith.rounded())) % mit · \(Int(insight.avgWithout.rounded())) % ohne (\(insight.daysWith)/\(insight.daysWithout) Tage)")
+                            Text(model.loc("Ø Recovery danach: \(Int(insight.avgWith.rounded())) % mit · \(Int(insight.avgWithout.rounded())) % ohne (\(insight.daysWith)/\(insight.daysWithout) Tage)", "Avg recovery after: \(Int(insight.avgWith.rounded())) % with · \(Int(insight.avgWithout.rounded())) % without (\(insight.daysWith)/\(insight.daysWithout) days)"))
                                 .font(.caption2)
                                 .foregroundStyle(Theme.textSecondary)
                         }
@@ -77,7 +77,7 @@ struct TrendsView: View {
                     if !ready {
                         assessmentProgress
                     }
-                    Text("Differenz in Recovery-Punkten am Folgetag, stärkster Effekt zuerst. Belastbar heißt: Differenz größer als das Doppelte ihres Standardfehlers. Korrelation, kein Beweis.")
+                    Text(model.loc("Differenz in Recovery-Punkten am Folgetag, stärkster Effekt zuerst. Belastbar heißt: Differenz größer als das Doppelte ihres Standardfehlers. Korrelation, kein Beweis.", "Difference in next-day recovery points, strongest effect first. Solid means: difference exceeds twice its standard error. Correlation, not proof."))
                         .font(.caption2)
                         .foregroundStyle(Theme.textSecondary.opacity(0.8))
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -88,7 +88,7 @@ struct TrendsView: View {
 
     private var assessmentProgress: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Monats-Auswertung ab \(JournalEngine.assessmentMinRecoveryDays) Recovery-Tagen – aktuell \(min(model.recoveryDayCount, JournalEngine.assessmentMinRecoveryDays))/\(JournalEngine.assessmentMinRecoveryDays).")
+            Text(model.loc("Monats-Auswertung ab \(JournalEngine.assessmentMinRecoveryDays) Recovery-Tagen – aktuell \(min(model.recoveryDayCount, JournalEngine.assessmentMinRecoveryDays))/\(JournalEngine.assessmentMinRecoveryDays).", "Monthly assessment from \(JournalEngine.assessmentMinRecoveryDays) recovery days – currently \(min(model.recoveryDayCount, JournalEngine.assessmentMinRecoveryDays))/\(JournalEngine.assessmentMinRecoveryDays)."))
                 .font(.caption2)
                 .foregroundStyle(Theme.textSecondary)
             ProgressView(
@@ -152,7 +152,7 @@ struct TrendsView: View {
     @ViewBuilder
     private var weeklyNote: some View {
         if isWeekly {
-            Text("Ein Punkt = Wochenmittel")
+            Text(model.loc("Ein Punkt = Wochenmittel", "One point = weekly average"))
                 .font(.caption2)
                 .foregroundStyle(Theme.textSecondary.opacity(0.8))
         }
@@ -161,7 +161,7 @@ struct TrendsView: View {
     // MARK: - Karten
 
     private var summaryCard: some View {
-        SectionCard("Durchschnitt (\(range) Tage)") {
+        SectionCard(model.loc("Durchschnitt (\(range) Tage)", "Average (\(range) days)")) {
             HStack(spacing: 12) {
                 StatCell(
                     label: "Recovery",
@@ -174,7 +174,7 @@ struct TrendsView: View {
                     color: Theme.strainBlue
                 )
                 StatCell(
-                    label: "Schlaf",
+                    label: model.loc("Schlaf", "Sleep"),
                     value: average(rawSleep).map { "\(Fmt.hm($0)) h" } ?? "–",
                     color: Theme.sleepPurple
                 )
@@ -203,33 +203,33 @@ struct TrendsView: View {
                         recoveryTrend: trendPoints(TrendMath.movingAverage(rawRecovery, window: 7)),
                         barOpacity: 0.22,
                         showStrainSymbols: false,
-                        aggregationNote: "Linien = 7-Tage-Schnitt"
+                        aggregationNote: model.loc("Linien = 7-Tage-Schnitt", "Lines = 7-day average")
                     )
                 } else if isWeekly {
                     RecoveryStrainChart(
                         recovery: recoveryPoints,
                         strain: strainPoints,
-                        aggregationNote: "Wochenmittel"
+                        aggregationNote: model.loc("Wochenmittel", "Weekly average")
                     )
                 } else {
                     RecoveryStrainChart(recovery: recoveryPoints, strain: strainPoints)
                 }
-                Text("Ideal: hohe Recovery an Tagen vor hohem Strain. Dauerhaft hoher Strain bei niedriger Recovery deutet auf Übertraining hin.")
+                Text(model.loc("Ideal: hohe Recovery an Tagen vor hohem Strain. Dauerhaft hoher Strain bei niedriger Recovery deutet auf Übertraining hin.", "Ideal: high recovery on days before high strain. Persistently high strain with low recovery suggests overtraining."))
                     .font(.caption2)
                     .foregroundStyle(Theme.textSecondary)
             } else {
-                EmptyDataHint(text: "Noch zu wenige Tage.")
+                EmptyDataHint(text: model.loc("Noch zu wenige Tage.", "Not enough days yet."))
             }
         }
     }
 
     private var sleepCard: some View {
-        SectionCard("Schlafdauer vs. Bedarf") {
+        SectionCard(model.loc("Schlafdauer vs. Bedarf", "Sleep vs. need")) {
             if sleepPoints.count >= 2 {
                 SleepTrendChart(slept: sleepPoints, need: needPoints)
                 weeklyNote
             } else {
-                EmptyDataHint(text: "Noch zu wenige Nächte.")
+                EmptyDataHint(text: model.loc("Noch zu wenige Nächte.", "Not enough nights yet."))
             }
         }
     }
@@ -251,13 +251,13 @@ struct TrendsView: View {
                 )
                 weeklyNote
             } else {
-                EmptyDataHint(text: "Noch zu wenige HRV-Werte.")
+                EmptyDataHint(text: model.loc("Noch zu wenige HRV-Werte.", "Not enough HRV values yet."))
             }
         }
     }
 
     private var rhrCard: some View {
-        SectionCard("Ruhepuls") {
+        SectionCard(model.loc("Ruhepuls", "Resting HR")) {
             if rhrPoints.count >= 2 {
                 BaselineLineChart(
                     points: rhrPoints,
@@ -266,7 +266,7 @@ struct TrendsView: View {
                 )
                 weeklyNote
             } else {
-                EmptyDataHint(text: "Noch zu wenige Ruhepuls-Werte.")
+                EmptyDataHint(text: model.loc("Noch zu wenige Ruhepuls-Werte.", "Not enough resting HR values yet."))
             }
         }
     }

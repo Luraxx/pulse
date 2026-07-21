@@ -27,7 +27,7 @@ struct OverviewDetailView: View {
                         color: recovery.map { Theme.recoveryColor(zone: $0.zone) } ?? Theme.textSecondary,
                         title: "Recovery",
                         valueText: recovery.map { "\($0.score) %" } ?? "–",
-                        subText: recovery.map { $0.calibrating ? "kalibriert noch" : zoneName($0.zone) }
+                        subText: recovery.map { $0.calibrating ? model.loc("kalibriert noch", "calibrating") : zoneName($0.zone) }
                     ) {
                         RecoveryDetailView()
                     }
@@ -35,9 +35,9 @@ struct OverviewDetailView: View {
                         index: 1,
                         value: (sleep?.hasData == true) ? sleep.map { $0.performance / 100 } : nil,
                         color: Theme.sleepPurple,
-                        title: "Schlaf",
+                        title: model.loc("Schlaf", "Sleep"),
                         valueText: (sleep?.hasData == true) ? "\(Int(sleep!.performance.rounded())) %" : "–",
-                        subText: (sleep?.hasData == true) ? "\(Fmt.hm(sleep!.sleptMinutes)) h geschlafen" : nil
+                        subText: (sleep?.hasData == true) ? model.loc("\(Fmt.hm(sleep!.sleptMinutes)) h geschlafen", "\(Fmt.hm(sleep!.sleptMinutes)) h slept") : nil
                     ) {
                         SleepDetailView()
                     }
@@ -47,13 +47,13 @@ struct OverviewDetailView: View {
                         color: Theme.strainBlue,
                         title: "Strain",
                         valueText: strain.map { String(format: "%.1f", $0.strain) } ?? "–",
-                        subText: target.map { String(format: "Ziel %.1f", $0) }
+                        subText: target.map { String(format: model.loc("Ziel %.1f", "Target %.1f"), $0) }
                     ) {
                         StrainDetailView()
                     }
                 }
 
-                Text("Jeder Ring zeigt, wie viel von deinem heutigen Soll erreicht ist – antippen für Details.")
+                Text(model.loc("Jeder Ring zeigt, wie viel von deinem heutigen Soll erreicht ist – antippen für Details.", "Each ring shows how much of today\u{2019}s target you have reached – tap for details."))
                     .font(.caption2)
                     .foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -62,7 +62,7 @@ struct OverviewDetailView: View {
             .padding(.bottom, 24)
         }
         .background(Theme.bg.ignoresSafeArea())
-        .navigationTitle("Übersicht")
+        .navigationTitle(model.loc("Übersicht", "Overview"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             appear = true
@@ -123,10 +123,17 @@ struct OverviewDetailView: View {
     }
 
     private func zoneName(_ zone: RecoveryZone) -> String {
+        if model.language == .de {
+            switch zone {
+            case .green: return "gut erholt"
+            case .yellow: return "mäßig erholt"
+            case .red: return "wenig erholt"
+            }
+        }
         switch zone {
-        case .green: return "gut erholt"
-        case .yellow: return "mäßig erholt"
-        case .red: return "wenig erholt"
+        case .green: return "well recovered"
+        case .yellow: return "moderately recovered"
+        case .red: return "poorly recovered"
         }
     }
 }

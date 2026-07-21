@@ -14,7 +14,7 @@ struct RecoveryDetailView: View {
                         hrvCard(recovery)
                         rhrCard(recovery)
                     } else {
-                        EmptyDataHint(text: "Keine Recovery-Daten für diesen Tag.")
+                        EmptyDataHint(text: model.loc("Keine Recovery-Daten für diesen Tag.", "No recovery data for this day."))
                     }
                 }
                 .padding(.horizontal, 16)
@@ -51,33 +51,37 @@ struct RecoveryDetailView: View {
                     .multilineTextAlignment(.center)
 
                 if recovery.calibrating {
-                    PillBadge(text: "Baseline kalibriert noch", color: Theme.yellow)
+                    PillBadge(text: model.loc("Baseline kalibriert noch", "Baseline still calibrating"), color: Theme.yellow)
                 }
             }
         }
     }
 
     private func zoneText(_ zone: RecoveryZone) -> String {
+        if model.language == .de {
+            switch zone {
+            case .green: return "Dein Körper ist erholt – ein guter Tag für intensive Belastung."
+            case .yellow: return "Mäßig erholt. Moderates Training ist okay, höre auf deinen Körper."
+            case .red: return "Dein Körper braucht Erholung. Heute besser regenerieren."
+            }
+        }
         switch zone {
-        case .green:
-            return "Dein Körper ist erholt – ein guter Tag für intensive Belastung."
-        case .yellow:
-            return "Mäßig erholt. Moderates Training ist okay, höre auf deinen Körper."
-        case .red:
-            return "Dein Körper braucht Erholung. Heute besser regenerieren."
+        case .green: return "Your body is recovered – a good day for intense effort."
+        case .yellow: return "Moderately recovered. Moderate training is fine, listen to your body."
+        case .red: return "Your body needs recovery. Better to regenerate today."
         }
     }
 
     private func componentsCard(_ recovery: RecoveryResult) -> some View {
-        SectionCard("Einflussfaktoren") {
+        SectionCard(model.loc("Einflussfaktoren", "Contributing factors")) {
             VStack(spacing: 12) {
                 ForEach(recovery.components, id: \.key) { component in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text(component.label)
+                            Text(recoveryComponentLabel(component.key, fallback: component.label, model.language))
                                 .font(.subheadline)
                                 .foregroundStyle(Theme.textPrimary)
-                            Text("· Gewicht \(Int((component.weight * 100).rounded())) %")
+                            Text(model.loc("· Gewicht \(Int((component.weight * 100).rounded())) %", "· weight \(Int((component.weight * 100).rounded())) %"))
                                 .font(.caption2)
                                 .foregroundStyle(Theme.textSecondary)
                             Spacer()
@@ -107,7 +111,7 @@ struct RecoveryDetailView: View {
     }
 
     private func hrvCard(_ recovery: RecoveryResult) -> some View {
-        SectionCard("HRV – letzte 30 Tage") {
+        SectionCard(model.loc("HRV – letzte 30 Tage", "HRV – last 30 days")) {
             let points = trendPoints(model.trend(30) { $0.hrvRmssd })
             if points.count >= 2 {
                 BaselineLineChart(
@@ -116,17 +120,17 @@ struct RecoveryDetailView: View {
                     color: Theme.teal,
                     isLogBaseline: true
                 )
-                Text("Band = persönliche Baseline ± 1 SD. Höher als das Band ist gut, darunter deutet auf Belastung hin.")
+                Text(model.loc("Band = persönliche Baseline ± 1 SD. Höher als das Band ist gut, darunter deutet auf Belastung hin.", "Band = personal baseline ± 1 SD. Above the band is good, below suggests strain."))
                     .font(.caption2)
                     .foregroundStyle(Theme.textSecondary)
             } else {
-                EmptyDataHint(text: "Noch zu wenige HRV-Nächte.")
+                EmptyDataHint(text: model.loc("Noch zu wenige HRV-Nächte.", "Not enough HRV nights yet."))
             }
         }
     }
 
     private func rhrCard(_ recovery: RecoveryResult) -> some View {
-        SectionCard("Ruhepuls – letzte 30 Tage") {
+        SectionCard(model.loc("Ruhepuls – letzte 30 Tage", "Resting HR – last 30 days")) {
             let points = trendPoints(model.trend(30) { $0.restingHR })
             if points.count >= 2 {
                 BaselineLineChart(
@@ -134,11 +138,11 @@ struct RecoveryDetailView: View {
                     baseline: recovery.rhrBaseline,
                     color: Theme.red
                 )
-                Text("Ein erhöhter Ruhepuls gegenüber der Baseline ist ein frühes Zeichen für Stress, Krankheit oder unvollständige Erholung.")
+                Text(model.loc("Ein erhöhter Ruhepuls gegenüber der Baseline ist ein frühes Zeichen für Stress, Krankheit oder unvollständige Erholung.", "A resting heart rate above your baseline is an early sign of stress, illness or incomplete recovery."))
                     .font(.caption2)
                     .foregroundStyle(Theme.textSecondary)
             } else {
-                EmptyDataHint(text: "Noch zu wenige Ruhepuls-Werte.")
+                EmptyDataHint(text: model.loc("Noch zu wenige Ruhepuls-Werte.", "Not enough resting HR values yet."))
             }
         }
     }

@@ -41,12 +41,13 @@ enum Theme {
     }
 
     static func stageName(_ stage: SleepStage) -> String {
+        let de = Fmt.language == .de
         switch stage {
-        case .awake: return "Wach"
+        case .awake: return de ? "Wach" : "Awake"
         case .rem: return "REM"
-        case .light: return "Leicht"
-        case .deep: return "Tief"
-        case .unknown: return "Unbekannt"
+        case .light: return de ? "Leicht" : "Light"
+        case .deep: return de ? "Tief" : "Deep"
+        case .unknown: return de ? "Unbekannt" : "Unknown"
         }
     }
 
@@ -59,12 +60,13 @@ enum Theme {
     }
 
     static func bandLabel(_ state: BandState) -> String {
+        let de = Fmt.language == .de
         switch state {
-        case .inRange: return "im Bereich"
-        case .above: return "erhöht"
-        case .below: return "niedrig"
-        case .noData: return "keine Daten"
-        case .calibrating: return "kalibriert"
+        case .inRange: return de ? "im Bereich" : "in range"
+        case .above: return de ? "erhöht" : "elevated"
+        case .below: return de ? "niedrig" : "low"
+        case .noData: return de ? "keine Daten" : "no data"
+        case .calibrating: return de ? "kalibriert" : "calibrating"
         }
     }
 }
@@ -81,37 +83,34 @@ extension Color {
     }
 }
 
-/// Formatierungs-Helfer (deutsch).
+/// Formatierungs-Helfer. `language` wird vom AppModel gesetzt und schaltet
+/// Locale und feste Texte (Heute/Gestern) um.
 enum Fmt {
-    private static let german = Locale(identifier: "de_DE")
+    /// Aktive Sprache — wird beim Start und bei jedem Wechsel gesetzt.
+    static var language: PulseLanguage = .de {
+        didSet { rebuildFormatters() }
+    }
 
-    private static let clockFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = german
-        f.dateFormat = "HH:mm"
-        return f
-    }()
+    private static var locale = Locale(identifier: "de_DE")
+    private static var clockFormatter = makeFormatter("HH:mm")
+    private static var dayTitleFormatter = makeFormatter("EEEE, d. MMMM")
+    private static var dayShortFormatter = makeFormatter("EE d.M.")
+    private static var weekdayLetterFormatter = makeFormatter("EEEEE")
 
-    private static let dayTitleFormatter: DateFormatter = {
+    private static func makeFormatter(_ format: String) -> DateFormatter {
         let f = DateFormatter()
-        f.locale = german
-        f.dateFormat = "EEEE, d. MMMM"
+        f.locale = locale
+        f.dateFormat = format
         return f
-    }()
+    }
 
-    private static let dayShortFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = german
-        f.dateFormat = "EE d.M."
-        return f
-    }()
-
-    private static let weekdayLetterFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = german
-        f.dateFormat = "EEEEE"
-        return f
-    }()
+    private static func rebuildFormatters() {
+        locale = Locale(identifier: language.localeIdentifier)
+        clockFormatter = makeFormatter("HH:mm")
+        dayTitleFormatter = makeFormatter(language == .de ? "EEEE, d. MMMM" : "EEEE, MMMM d")
+        dayShortFormatter = makeFormatter(language == .de ? "EE d.M." : "EE M/d")
+        weekdayLetterFormatter = makeFormatter("EEEEE")
+    }
 
     /// Minuten → "7:36"
     static func hm(_ minutes: Double) -> String {
@@ -131,8 +130,8 @@ enum Fmt {
 
     static func dayTitle(_ key: String) -> String {
         guard let date = DayKey.date(from: key) else { return key }
-        if key == DayKey.today() { return "Heute" }
-        if key == DayKey.addDays(DayKey.today(), -1) { return "Gestern" }
+        if key == DayKey.today() { return language == .de ? "Heute" : "Today" }
+        if key == DayKey.addDays(DayKey.today(), -1) { return language == .de ? "Gestern" : "Yesterday" }
         return dayTitleFormatter.string(from: date)
     }
 
@@ -152,7 +151,7 @@ enum Fmt {
 
     static func relative(_ date: Date) -> String {
         let f = RelativeDateTimeFormatter()
-        f.locale = german
+        f.locale = locale
         f.unitsStyle = .short
         return f.localizedString(for: date, relativeTo: Date())
     }

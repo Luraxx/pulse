@@ -12,8 +12,8 @@ struct DashboardView: View {
                     content
                 } else {
                     EmptyDataHint(text: model.isConnected
-                        ? "Noch keine Daten – starte oben rechts eine Synchronisierung."
-                        : "Keine Daten vorhanden. Verbinde Google Health oder starte den Demo-Modus unter „Mehr“.")
+                        ? model.loc("Noch keine Daten – starte oben rechts eine Synchronisierung.", "No data yet – tap sync in the top right corner.")
+                        : model.loc("Keine Daten vorhanden. Verbinde Google Health oder starte den Demo-Modus unter „Mehr“.", "No data. Connect Google Health or start demo mode under More."))
                 }
             }
             .navigationTitle(Fmt.dayTitle(model.selectedDayKey))
@@ -142,7 +142,7 @@ struct DashboardView: View {
                 Image(systemName: "waveform.path.ecg.rectangle.fill")
                     .foregroundStyle(Theme.orange)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Gesundheits-Hinweis")
+                    Text(model.loc("Gesundheits-Hinweis", "Health notice"))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.textPrimary)
                     Text(alert.message)
@@ -182,7 +182,7 @@ struct DashboardView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             ForEach(recovery.components, id: \.key) { component in
                                 HStack {
-                                    Text(component.label)
+                                    Text(recoveryComponentLabel(component.key, fallback: component.label, model.language))
                                         .font(.caption)
                                         .foregroundStyle(Theme.textSecondary)
                                     Spacer()
@@ -192,14 +192,14 @@ struct DashboardView: View {
                                 }
                             }
                             if recovery.calibrating {
-                                Text("Baseline kalibriert noch (< 5 Nächte)")
+                                Text(model.loc("Baseline kalibriert noch (< 5 Nächte)", "Baseline still calibrating (< 5 nights)"))
                                     .font(.caption2)
                                     .foregroundStyle(Theme.yellow)
                             }
                         }
                     }
                 } else {
-                    EmptyDataHint(text: "Keine Recovery-Daten für diesen Tag.")
+                    EmptyDataHint(text: model.loc("Keine Recovery-Daten für diesen Tag.", "No recovery data for this day."))
                 }
             }
         }
@@ -212,7 +212,7 @@ struct DashboardView: View {
         NavigationLink {
             AgeDetailView()
         } label: {
-            SectionCard("Pulse Alter") {
+            SectionCard(model.loc("Pulse Alter", "Pulse Age")) {
                 if let result = model.ageResult(for: model.selectedDayKey) {
                     if let pulseAge = result.pulseAge, let delta = result.deltaYears {
                         HStack(spacing: 18) {
@@ -220,7 +220,7 @@ struct DashboardView: View {
                                 Text("\(Int(pulseAge.rounded()))")
                                     .font(.system(size: 44, weight: .bold, design: .rounded))
                                     .foregroundStyle(Theme.textPrimary)
-                                Text("Jahre")
+                                Text(model.loc("Jahre", "years"))
                                     .font(.caption)
                                     .foregroundStyle(Theme.textSecondary)
                             }
@@ -230,16 +230,16 @@ struct DashboardView: View {
                                 Text(Self.deltaText(delta))
                                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                                     .foregroundStyle(Self.deltaColor(delta))
-                                Text("Chronologisch: \(result.chronoAge) Jahre")
+                                Text(model.loc("Chronologisch: \(result.chronoAge) Jahre", "Chronological: \(result.chronoAge) years"))
                                     .font(.caption)
                                     .foregroundStyle(Theme.textSecondary)
                                 if let vo2 = result.vo2max {
-                                    Text(String(format: "VO₂max %.0f%@", vo2, result.vo2maxEstimated ? " (geschätzt)" : ""))
+                                    Text(String(format: "VO₂max %.0f%@", vo2, result.vo2maxEstimated ? model.loc(" (geschätzt)", " (estimated)") : ""))
                                         .font(.caption)
                                         .foregroundStyle(Theme.textSecondary)
                                 }
                                 if result.calibrating {
-                                    Text("kalibriert noch · Tag \(result.calibrationHave)/\(result.calibrationNeed)")
+                                    Text(model.loc("kalibriert noch · Tag \(result.calibrationHave)/\(result.calibrationNeed)", "calibrating · day \(result.calibrationHave)/\(result.calibrationNeed)"))
                                         .font(.caption2)
                                         .foregroundStyle(Theme.yellow)
                                 }
@@ -247,10 +247,10 @@ struct DashboardView: View {
                         }
                     } else {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Wird kalibriert …")
+                            Text(model.loc("Wird kalibriert …", "Calibrating …"))
                                 .font(.system(.title3, design: .rounded).weight(.bold))
                                 .foregroundStyle(Theme.textPrimary)
-                            Text("Sammle mind. \(result.calibrationNeed) Tage Daten – aktuell Tag \(result.calibrationHave)/\(result.calibrationNeed).")
+                            Text(model.loc("Sammle mind. \(result.calibrationNeed) Tage Daten – aktuell Tag \(result.calibrationHave)/\(result.calibrationNeed).", "Collecting at least \(result.calibrationNeed) days of data – currently day \(result.calibrationHave)/\(result.calibrationNeed)."))
                                 .font(.caption)
                                 .foregroundStyle(Theme.textSecondary)
                             ProgressView(value: Double(result.calibrationHave), total: Double(result.calibrationNeed))
@@ -258,7 +258,7 @@ struct DashboardView: View {
                         }
                     }
                 } else {
-                    EmptyDataHint(text: "Noch keine Daten für das Pulse Alter.")
+                    EmptyDataHint(text: model.loc("Noch keine Daten für das Pulse Alter.", "No data for Pulse Age yet."))
                 }
             }
         }
@@ -266,11 +266,15 @@ struct DashboardView: View {
     }
 
     static func deltaText(_ delta: Double) -> String {
-        let years = abs(delta)
-        let rounded = Int(years.rounded())
-        if rounded == 0 { return "Genau in deinem Alter" }
-        let unit = rounded == 1 ? "Jahr" : "Jahre"
-        return delta < 0 ? "\(rounded) \(unit) jünger" : "\(rounded) \(unit) älter"
+        let rounded = Int(abs(delta).rounded())
+        if Fmt.language == .de {
+            if rounded == 0 { return "Genau in deinem Alter" }
+            let unit = rounded == 1 ? "Jahr" : "Jahre"
+            return delta < 0 ? "\(rounded) \(unit) jünger" : "\(rounded) \(unit) älter"
+        }
+        if rounded == 0 { return "Exactly your age" }
+        let unit = rounded == 1 ? "year" : "years"
+        return delta < 0 ? "\(rounded) \(unit) younger" : "\(rounded) \(unit) older"
     }
 
     static func deltaColor(_ delta: Double) -> Color {
@@ -285,7 +289,7 @@ struct DashboardView: View {
         NavigationLink {
             SleepDetailView()
         } label: {
-            SectionCard("Schlaf") {
+            SectionCard(model.loc("Schlaf", "Sleep")) {
                 if let sleep = model.sleep(for: model.selectedDayKey), sleep.hasData {
                     HStack(spacing: 18) {
                         RingGauge(
@@ -305,33 +309,33 @@ struct DashboardView: View {
                         .frame(width: 92, height: 92)
 
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("\(Fmt.hm(sleep.sleptMinutes)) von \(Fmt.hm(sleep.needMinutes)) h")
+                            Text(model.loc("\(Fmt.hm(sleep.sleptMinutes)) von \(Fmt.hm(sleep.needMinutes)) h", "\(Fmt.hm(sleep.sleptMinutes)) of \(Fmt.hm(sleep.needMinutes)) h"))
                                 .font(.system(.title3, design: .rounded).weight(.bold))
                                 .foregroundStyle(Theme.textPrimary)
                             if let bed = sleep.bedTime, let wake = sleep.wakeTime {
-                                Text("\(Fmt.clock(bed)) – \(Fmt.clock(wake)) Uhr")
+                                Text(model.loc("\(Fmt.clock(bed)) – \(Fmt.clock(wake)) Uhr", "\(Fmt.clock(bed)) – \(Fmt.clock(wake))"))
                                     .font(.caption)
                                     .foregroundStyle(Theme.textSecondary)
                             }
                             if sleep.debtAfterMinutes > 5 {
-                                Text("Schlafschuld: \(Fmt.hm(sleep.debtAfterMinutes)) h")
+                                Text(model.loc("Schlafschuld: \(Fmt.hm(sleep.debtAfterMinutes)) h", "Sleep debt: \(Fmt.hm(sleep.debtAfterMinutes)) h"))
                                     .font(.caption)
                                     .foregroundStyle(Theme.orange)
                             } else {
-                                Text("Keine Schlafschuld")
+                                Text(model.loc("Keine Schlafschuld", "No sleep debt"))
                                     .font(.caption)
                                     .foregroundStyle(Theme.green)
                             }
                             if model.selectedDayKey == DayKey.today(),
                                let bed = model.bedtimeTonight?.recommendedBedtimeMinutes {
-                                Label("Ziel heute: bis \(Fmt.clockFromMinutes(bed)) ins Bett", systemImage: "bed.double")
+                                Label(model.loc("Ziel heute: bis \(Fmt.clockFromMinutes(bed)) ins Bett", "Tonight: in bed by \(Fmt.clockFromMinutes(bed))"), systemImage: "bed.double")
                                     .font(.caption)
                                     .foregroundStyle(Theme.teal)
                             }
                         }
                     }
                 } else {
-                    EmptyDataHint(text: "Kein Schlaf für diesen Tag erfasst.")
+                    EmptyDataHint(text: model.loc("Kein Schlaf für diesen Tag erfasst.", "No sleep recorded for this day."))
                 }
             }
         }
@@ -344,7 +348,7 @@ struct DashboardView: View {
         NavigationLink {
             StrainDetailView()
         } label: {
-            SectionCard("Tagesbelastung") {
+            SectionCard(model.loc("Tagesbelastung", "Daily strain")) {
                 if let strain = model.strain(for: model.selectedDayKey) {
                     let target = model.recovery(for: model.selectedDayKey)
                         .map { StrainEngine.targetStrain(forRecovery: $0.score) }
@@ -359,7 +363,7 @@ struct DashboardView: View {
                                 Text(String(format: "%.1f", strain.strain))
                                     .font(.system(size: 30, weight: .bold, design: .rounded))
                                     .foregroundStyle(Theme.textPrimary)
-                                Text("von 21")
+                                Text(model.loc("von 21", "of 21"))
                                     .font(.caption2)
                                     .foregroundStyle(Theme.textSecondary)
                             }
@@ -368,12 +372,12 @@ struct DashboardView: View {
 
                         VStack(alignment: .leading, spacing: 6) {
                             if let target {
-                                Text("Ziel heute: \(String(format: "%.1f", target))")
+                                Text(model.loc("Ziel heute: \(String(format: "%.1f", target))", "Today\u{2019}s target: \(String(format: "%.1f", target))"))
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(Theme.strainBlue)
                             }
                             let active = strain.zoneMinutes.dropFirst(2).reduce(0, +)
-                            Text("\(Int(active.rounded())) min fordernd oder härter")
+                            Text(model.loc("\(Int(active.rounded())) min fordernd oder härter", "\(Int(active.rounded())) min demanding or harder"))
                                 .font(.caption)
                                 .foregroundStyle(Theme.textSecondary)
                             if let record = model.selectedRecord, !record.workouts.isEmpty {
@@ -394,19 +398,19 @@ struct DashboardView: View {
                                     }
                                 }
                             } else {
-                                Text("Kein Workout erfasst")
+                                Text(model.loc("Kein Workout erfasst", "No workout recorded"))
                                     .font(.caption)
                                     .foregroundStyle(Theme.textSecondary)
                             }
                             if let peak = strain.peakHR {
-                                Text("Max. Puls: \(Int(peak.rounded()))")
+                                Text(model.loc("Max. Puls: \(Int(peak.rounded()))", "Max HR: \(Int(peak.rounded()))"))
                                     .font(.caption)
                                     .foregroundStyle(Theme.textSecondary)
                             }
                         }
                     }
                 } else {
-                    EmptyDataHint(text: "Keine Belastungsdaten für diesen Tag.")
+                    EmptyDataHint(text: model.loc("Keine Belastungsdaten für diesen Tag.", "No strain data for this day."))
                 }
             }
         }
@@ -416,10 +420,10 @@ struct DashboardView: View {
     // MARK: - Health-Monitor
 
     private var healthCard: some View {
-        SectionCard("Health-Monitor") {
+        SectionCard(model.loc("Health-Monitor", "Health monitor")) {
             let statuses = model.healthStatuses
             if statuses.allSatisfy({ $0.state == .noData }) {
-                EmptyDataHint(text: "Keine nächtlichen Messwerte für diesen Tag.")
+                EmptyDataHint(text: model.loc("Keine nächtlichen Messwerte für diesen Tag.", "No overnight measurements for this day."))
             } else {
                 VStack(spacing: 10) {
                     ForEach(statuses, id: \.kind) { status in
@@ -427,12 +431,12 @@ struct DashboardView: View {
                             Circle()
                                 .fill(Theme.bandColor(status.state))
                                 .frame(width: 8, height: 8)
-                            Text(status.kind.label)
+                            Text(status.kind.label(model.language))
                                 .font(.caption)
                                 .foregroundStyle(Theme.textPrimary)
                             Spacer()
                             if let value = status.value {
-                                Text("\(status.kind.formatted(value)) \(status.kind.unit)")
+                                Text("\(status.kind.formatted(value)) \(status.kind.unit(model.language))")
                                     .font(.caption.monospacedDigit())
                                     .foregroundStyle(Theme.textPrimary)
                             }
@@ -450,9 +454,9 @@ struct DashboardView: View {
     private var footer: some View {
         VStack(spacing: 4) {
             if let lastSync = model.lastSyncAt {
-                Text("Letzter Sync: \(Fmt.relative(lastSync))")
+                Text(model.loc("Letzter Sync: \(Fmt.relative(lastSync))", "Last sync: \(Fmt.relative(lastSync))"))
             } else if model.demoMode {
-                Text("Demo-Modus – generierte Beispieldaten")
+                Text(model.loc("Demo-Modus – generierte Beispieldaten", "Demo mode – generated sample data"))
             }
         }
         .font(.caption2)

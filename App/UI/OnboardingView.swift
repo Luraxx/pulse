@@ -46,7 +46,20 @@ struct OnboardingView: View {
             Text("Pulse")
                 .font(.system(size: 42, weight: .bold, design: .rounded))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Dein persönliches Recovery-System\nfür die Fitbit Air")
+
+            // Sprachwahl direkt beim Einrichten (auch später unter Mehr änderbar).
+            Picker("Sprache / Language", selection: Binding(
+                get: { model.language },
+                set: { model.language = $0 }
+            )) {
+                ForEach(PulseLanguage.allCases) { lang in
+                    Text(lang.label).tag(lang)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 220)
+            .padding(.top, 10)
+            Text(model.loc("Dein persönliches Recovery-System\nfür die Fitbit Air", "Your personal recovery system\nfor the Fitbit Air"))
                 .font(.headline)
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -54,14 +67,14 @@ struct OnboardingView: View {
 
             VStack(alignment: .leading, spacing: 14) {
                 featureRow(icon: "arrow.clockwise.heart.fill", color: Theme.green,
-                           title: "Recovery & Pulse Alter",
-                           text: "HRV, Ruhepuls, Schlaf und VO₂max gegen deine persönliche Baseline.")
+                           title: model.loc("Recovery & Pulse Alter", "Recovery & Pulse Age"),
+                           text: model.loc("HRV, Ruhepuls, Schlaf und VO₂max gegen deine persönliche Baseline.", "HRV, resting HR, sleep and VO₂max against your personal baseline."))
                 featureRow(icon: "flame.fill", color: Theme.strainBlue,
-                           title: "Strain 0–21",
-                           text: "Kardiovaskuläre Belastung aus deinen Herzfrequenz-Zonen, wie bei Whoop.")
+                           title: model.loc("Strain 0–21", "Strain 0–21"),
+                           text: model.loc("Kardiovaskuläre Belastung aus deinen Herzfrequenz-Zonen, wie bei Whoop.", "Cardiovascular load from your heart-rate zones, Whoop-style."))
                 featureRow(icon: "bed.double.fill", color: Theme.sleepPurple,
-                           title: "Schlafbedarf & -schuld",
-                           text: "Wie viel Schlaf du heute wirklich brauchst – inklusive Phasen-Analyse.")
+                           title: model.loc("Schlafbedarf & -schuld", "Sleep need & debt"),
+                           text: model.loc("Wie viel Schlaf du heute wirklich brauchst – inklusive Phasen-Analyse.", "How much sleep you really need tonight – including stage analysis."))
             }
             .padding(24)
 
@@ -70,7 +83,7 @@ struct OnboardingView: View {
             Button {
                 step = 1
             } label: {
-                Text("Los geht's")
+                Text(model.loc("Los geht's", "Let's go"))
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
@@ -115,7 +128,7 @@ struct ProfileSetupView: View {
                     onBack()
                 } label: {
                     Image(systemName: "chevron.left")
-                    Text("Zurück")
+                    Text(model.loc("Zurück", "Back"))
                 }
                 .foregroundStyle(Theme.textSecondary)
                 Spacer()
@@ -123,7 +136,7 @@ struct ProfileSetupView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
 
-            Text("Dein Profil")
+            Text(model.loc("Dein Profil", "Your profile"))
                 .font(.system(.title, design: .rounded).weight(.bold))
                 .foregroundStyle(Theme.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -140,7 +153,7 @@ struct ProfileSetupView: View {
                 Button {
                     onConnect()
                 } label: {
-                    Text("Mit Google Health verbinden")
+                    Text(model.loc("Mit Google Health verbinden", "Connect Google Health"))
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
@@ -150,7 +163,7 @@ struct ProfileSetupView: View {
                 Button {
                     onDemo()
                 } label: {
-                    Text("Erstmal mit Demo-Daten starten")
+                    Text(model.loc("Erstmal mit Demo-Daten starten", "Start with demo data first"))
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
@@ -171,15 +184,15 @@ struct ProfileFields: View {
     var body: some View {
         Section {
             Stepper(value: $model.age, in: 14...90) {
-                LabeledContent("Alter", value: "\(model.age)")
+                LabeledContent(model.loc("Alter", "Age"), value: "\(model.age)")
             }
-            Picker("Geschlecht", selection: $model.sex) {
+            Picker(model.loc("Geschlecht", "Sex"), selection: $model.sex) {
                 ForEach(BiologicalSex.allCases, id: \.self) { sex in
-                    Text(sex.label).tag(sex)
+                    Text(sex.label(model.language)).tag(sex)
                 }
             }
             HStack {
-                Text("Größe")
+                Text(model.loc("Größe", "Height"))
                 Spacer()
                 TextField("cm", value: $model.heightCm, format: .number)
                     .keyboardType(.decimalPad)
@@ -188,7 +201,7 @@ struct ProfileFields: View {
                 Text("cm").foregroundStyle(Theme.textSecondary)
             }
             HStack {
-                Text("Gewicht")
+                Text(model.loc("Gewicht", "Weight"))
                 Spacer()
                 TextField("kg", value: $model.weightKg, format: .number)
                     .keyboardType(.decimalPad)
@@ -197,9 +210,9 @@ struct ProfileFields: View {
                 Text("kg").foregroundStyle(Theme.textSecondary)
             }
         } header: {
-            Text("Körperdaten")
+            Text(model.loc("Körperdaten", "Body data"))
         } footer: {
-            Text("Alter und Geschlecht bestimmen die Normkurven fürs Pulse Alter und die max. Herzfrequenz. Größe und Gewicht werden fürs Profil gespeichert (VO₂max ist bereits pro kg normalisiert und ändert sich dadurch nicht).")
+            Text(model.loc("Alter und Geschlecht bestimmen die Normkurven fürs Pulse Alter und die max. Herzfrequenz. Größe und Gewicht werden fürs Profil gespeichert (VO₂max ist bereits pro kg normalisiert und ändert sich dadurch nicht).", "Age and sex determine the reference curves for Pulse Age and max heart rate. Height and weight are stored for your profile (VO₂max is already normalized per kg)."))
         }
     }
 }
@@ -215,14 +228,14 @@ struct ConnectSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("z. B. 1234567890-abc.apps.googleusercontent.com", text: $model.clientID, axis: .vertical)
+                    TextField(model.loc("z. B. 1234567890-abc.apps.googleusercontent.com", "e.g. 1234567890-abc.apps.googleusercontent.com"), text: $model.clientID, axis: .vertical)
                         .font(.footnote.monospaced())
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                 } header: {
-                    Text("iOS-Client-ID (Google Cloud)")
+                    Text(model.loc("iOS-Client-ID (Google Cloud)", "iOS client ID (Google Cloud)"))
                 } footer: {
-                    Text("Einmalig nötig: In der Google Cloud Console die **Google Health API** aktivieren, einen OAuth-Client vom Typ **iOS** anlegen und die Client-ID hier einfügen. Schritt-für-Schritt-Anleitung in der README des Projekts.")
+                    Text(model.loc("Einmalig nötig: In der Google Cloud Console die **Google Health API** aktivieren, einen OAuth-Client vom Typ **iOS** anlegen und die Client-ID hier einfügen. Schritt-für-Schritt-Anleitung in der README des Projekts.", "One-time setup: enable the **Google Health API** in the Google Cloud Console, create an **iOS** OAuth client and paste the client ID here. Step-by-step guide in the project README."))
                 }
 
                 Section {
@@ -240,13 +253,13 @@ struct ConnectSheet: View {
                             if working {
                                 ProgressView().padding(.trailing, 6)
                             }
-                            Text(working ? "Verbinde…" : "Bei Google anmelden")
+                            Text(working ? model.loc("Verbinde…", "Connecting…") : model.loc("Bei Google anmelden", "Sign in with Google"))
                         }
                     }
                     .disabled(working || !model.oauthConfig.isValid)
                 } footer: {
                     if !model.clientID.isEmpty && !model.oauthConfig.isValid {
-                        Text("Die Client-ID muss auf .apps.googleusercontent.com enden.")
+                        Text(model.loc("Die Client-ID muss auf .apps.googleusercontent.com enden.", "The client ID must end in .apps.googleusercontent.com."))
                             .foregroundStyle(Theme.red)
                     }
                 }
@@ -263,7 +276,7 @@ struct ConnectSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    Button(model.loc("Abbrechen", "Cancel")) { dismiss() }
                 }
             }
         }

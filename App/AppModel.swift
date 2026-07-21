@@ -28,11 +28,26 @@ final class AppModel {
         static let connectedAt = "auth.connectedAt"
         static let moduleOrder = "dashboard.moduleOrder"
         static let hiddenModules = "dashboard.hiddenModules"
+        static let language = "app.language"
     }
 
     /// Identifier des Hintergrund-Sync-Tasks (muss in Info.plist unter
     /// BGTaskSchedulerPermittedIdentifiers stehen).
     static let refreshTaskID = "net.dehlwes.pulse.refresh"
+
+    /// App-Sprache; wirkt sofort auf alle Texte (kein Neustart nötig).
+    var language: PulseLanguage {
+        didSet {
+            defaults.set(language.rawValue, forKey: Keys.language)
+            Fmt.language = language
+            recomputeAll() // AgeEngine-Komponenten tragen lokalisierte Texte
+        }
+    }
+
+    /// Kurzform für zweisprachige Texte direkt am Verwendungsort.
+    func loc(_ de: String, _ en: String) -> String {
+        language == .de ? de : en
+    }
 
     var clientID: String {
         didSet { defaults.set(clientID, forKey: Keys.clientID) }
@@ -165,6 +180,10 @@ final class AppModel {
         store = MetricsStore(directory: directory)
         journal = JournalStore(directory: directory)
 
+        language = defaults.string(forKey: Keys.language).flatMap(PulseLanguage.init(rawValue:))
+            ?? .systemDefault
+        Fmt.language = language
+
         clientID = defaults.string(forKey: Keys.clientID) ?? ""
         onboarded = defaults.bool(forKey: Keys.onboarded)
         demoMode = defaults.bool(forKey: Keys.demoMode)
@@ -287,9 +306,9 @@ final class AppModel {
     /// Zubettgeh-Erinnerung für heute Abend.
     func rescheduleRoutineNotifications() {
         guard notificationsEnabled else { return }
-        PulseNotifications.scheduleMorningReminder()
+        PulseNotifications.scheduleMorningReminder(language: language)
         if let bed = bedtimeTonight?.recommendedBedtimeMinutes {
-            PulseNotifications.scheduleBedtimeReminder(bedtimeMinutes: bed)
+            PulseNotifications.scheduleBedtimeReminder(bedtimeMinutes: bed, language: language)
         } else {
             PulseNotifications.cancelBedtimeReminder()
         }
@@ -300,7 +319,7 @@ final class AppModel {
     /// Proaktive Gesundheitswarnung für den ausgewählten Tag (nil = alles im Rahmen).
     var healthAlert: HealthAlert? {
         let records = store.chronological(upTo: selectedDayKey, count: 10)
-        return HealthMonitor.alert(records: records)
+        return HealthMonitor.alert(records: records, language: language)
     }
 
     /// Empfehlung für die kommende Nacht (aus Schlafschuld, heutigem Strain,
@@ -411,7 +430,7 @@ final class AppModel {
                 stepsValues: window.compactMap { $0.steps.map(Double.init) },
                 validDayCount: window.filter { $0.hrvRmssd != nil || $0.restingHR != nil }.count
             )
-            ages[key] = AgeEngine.compute(dateKey: key, inputs: inputs)
+            ages[key] = AgeEngine.compute(dateKey: key, inputs: inputs, language: language)
         }
         ageResults = ages
 
@@ -427,7 +446,8 @@ final class AppModel {
             recovery: todayRecovery,
             sleepPerformance: (todaySleep?.hasData == true) ? todaySleep?.performance : nil,
             strain: strainResults[today]?.strain,
-            strainTarget: todayRecovery.map { StrainEngine.targetStrain(forRecovery: $0.score) }
+            strainTarget: todayRecovery.map { StrainEngine.targetStrain(forRecovery: $0.score) },
+            language: language
         )
     }
 
@@ -473,7 +493,7 @@ final class AppModel {
             _ = try await auth.exchange(code: code, pkce: pkce, config: config)
             connectedAt = Date()
             if notificationsEnabled, let connectedAt {
-                PulseNotifications.scheduleTokenExpiry(connectedAt: connectedAt)
+                PulseNotifications.scheduleTokenExpiry(connectedAt: connectedAt, language: language)
                 scheduleBackgroundRefresh()
             }
             if demoMode {
@@ -597,7 +617,7 @@ final class AppModel {
             let granted = await PulseNotifications.requestAuthorization()
             notificationsEnabled = granted
             if granted {
-                if let connectedAt { PulseNotifications.scheduleTokenExpiry(connectedAt: connectedAt) }
+                if let connectedAt { PulseNotifications.scheduleTokenExpiry(connectedAt: connectedAt, language: language) }
                 scheduleBackgroundRefresh()
             }
         } else {
@@ -627,12 +647,13 @@ final class AppModel {
             let sleepText = sleep(for: today).flatMap { $0.hasData ? "\(Fmt.hm($0.sleptMinutes)) h" : nil }
             let yesterday = DayKey.addDays(today, -1)
             let journalPending = journal.entry(for: yesterday).factors.isEmpty && store.days[yesterday] != nil
-            let alertMessage = HealthMonitor.alert(records: store.chronological(upTo: today, count: 10))?.message
+            let alertMessage = HealthMonitor.alert(records: store.chronological(upTo: today, count: 10), language: language)?.message
             PulseNotifications.postRecoverySummary(
                 recovery: rec.score,
                 sleep: sleepText,
                 journalPending: journalPending,
-                alertMessage: alertMessage
+                alertMessage: alertMessage,
+                language: language
             )
         }
     }

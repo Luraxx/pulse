@@ -13,13 +13,15 @@ enum WidgetBridge {
         static let strain = "strain.value"
         static let strainTarget = "strain.target"
         static let updatedAt = "recovery.updatedAt"
+        static let language = "app.language"
     }
 
     static func publish(
         recovery: RecoveryResult?,
         sleepPerformance: Double?,
         strain: Double?,
-        strainTarget: Double?
+        strainTarget: Double?,
+        language: PulseLanguage
     ) {
         // Nil, wenn die App-Group (noch) nicht bereitsteht → stiller No-Op.
         guard let defaults = UserDefaults(suiteName: appGroup) else { return }
@@ -33,6 +35,7 @@ enum WidgetBridge {
         setOrRemove(defaults, sleepPerformance, Key.sleepPerformance)
         setOrRemove(defaults, strain, Key.strain)
         setOrRemove(defaults, strainTarget, Key.strainTarget)
+        defaults.set(language.rawValue, forKey: Key.language)
         defaults.set(Date().timeIntervalSince1970, forKey: Key.updatedAt)
         WidgetCenter.shared.reloadAllTimelines()
     }

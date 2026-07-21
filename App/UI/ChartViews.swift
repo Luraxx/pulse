@@ -52,7 +52,7 @@ struct HRDayChart: View {
                     Text("\(Int(s.bpm.rounded()))")
                         .font(.system(.title3, design: .rounded).weight(.bold))
                         .foregroundStyle(Theme.red)
-                    Text("bpm · \(Fmt.clock(s.t)) Uhr")
+                    Text("bpm · \(Fmt.clock(s.t))\(Fmt.language == .de ? " Uhr" : "")")
                         .font(.caption)
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -302,7 +302,7 @@ struct RecoveryStrainChart: View {
                 }
                 HStack(spacing: 5) {
                     Capsule().fill(Theme.strainBlue).frame(width: 12, height: 3)
-                    Text("Strain (skaliert auf 100)")
+                    Text(Fmt.language == .de ? "Strain (skaliert auf 100)" : "Strain (scaled to 100)")
                 }
                 if let aggregationNote {
                     Text("· \(aggregationNote)")

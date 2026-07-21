@@ -17,17 +17,24 @@ enum DashboardModule: String, CaseIterable, Codable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
-        switch self {
-        case .overview: return "Tages-Übersicht"
-        case .recovery: return "Recovery"
-        case .age: return "Pulse Alter"
-        case .sleep: return "Schlaf"
-        case .strain: return "Tagesbelastung"
-        case .workouts: return "Sport"
-        case .steps: return "Schritte"
-        case .health: return "Health-Monitor"
-        case .journal: return "Journal"
+    func title(_ lang: PulseLanguage) -> String {
+        switch (self, lang) {
+        case (.overview, .de): return "Tages-Übersicht"
+        case (.overview, .en): return "Daily overview"
+        case (.recovery, _): return "Recovery"
+        case (.age, .de): return "Pulse Alter"
+        case (.age, .en): return "Pulse Age"
+        case (.sleep, .de): return "Schlaf"
+        case (.sleep, .en): return "Sleep"
+        case (.strain, .de): return "Tagesbelastung"
+        case (.strain, .en): return "Daily strain"
+        case (.workouts, .de): return "Sport"
+        case (.workouts, .en): return "Workouts"
+        case (.steps, .de): return "Schritte"
+        case (.steps, .en): return "Steps"
+        case (.health, .de): return "Health-Monitor"
+        case (.health, .en): return "Health monitor"
+        case (.journal, _): return "Journal"
         }
     }
 
@@ -62,7 +69,7 @@ struct DashboardCustomizeSheet: View {
                             Image(systemName: module.symbol)
                                 .foregroundStyle(Theme.teal)
                                 .frame(width: 26)
-                            Text(module.title)
+                            Text(module.title(model.language))
                                 .foregroundStyle(Theme.textPrimary)
                             Spacer()
                             Toggle("", isOn: Binding(
@@ -77,17 +84,17 @@ struct DashboardCustomizeSheet: View {
                         model.moveModules(from: from, to: to)
                     }
                 } footer: {
-                    Text("Ziehen zum Sortieren, Schalter zum Ein-/Ausblenden. Gilt für die Heute-Seite.")
+                    Text(model.loc("Ziehen zum Sortieren, Schalter zum Ein-/Ausblenden. Gilt für die Heute-Seite.", "Drag to reorder, toggle to show/hide. Applies to the Today page."))
                 }
             }
             .environment(\.editMode, .constant(.active))
             .scrollContentBackground(.hidden)
             .background(Theme.bg)
-            .navigationTitle("Heute anpassen")
+            .navigationTitle(model.loc("Heute anpassen", "Customize Today"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Fertig") { dismiss() }
+                    Button(model.loc("Fertig", "Done")) { dismiss() }
                 }
             }
         }
@@ -104,7 +111,7 @@ struct WorkoutsCard: View {
         NavigationLink {
             StrainDetailView()
         } label: {
-            SectionCard("Sport") {
+            SectionCard(model.loc("Sport", "Workouts")) {
                 if let record = model.selectedRecord, !record.workouts.isEmpty {
                     VStack(spacing: 10) {
                         ForEach(record.workouts, id: \.id) { workout in
@@ -117,7 +124,7 @@ struct WorkoutsCard: View {
                                     Text(workout.name)
                                         .font(.subheadline.weight(.semibold))
                                         .foregroundStyle(Theme.textPrimary)
-                                    Text("\(Fmt.clock(workout.start)) Uhr · \(Int(workout.durationMinutes.rounded())) min"
+                                    Text("\(Fmt.clock(workout.start))\(model.loc(" Uhr", "")) · \(Int(workout.durationMinutes.rounded())) min"
                                          + (workout.averageHR.map { " · Ø \(Int($0.rounded()))" } ?? ""))
                                         .font(.caption)
                                         .foregroundStyle(Theme.textSecondary)
@@ -137,7 +144,7 @@ struct WorkoutsCard: View {
                         }
                     }
                 } else {
-                    EmptyDataHint(text: "Kein Workout an diesem Tag erfasst.")
+                    EmptyDataHint(text: model.loc("Kein Workout an diesem Tag erfasst.", "No workout recorded on this day."))
                 }
             }
         }
@@ -153,14 +160,14 @@ struct StepsCard: View {
     private static let goal = 8000.0
 
     var body: some View {
-        SectionCard("Schritte") {
+        SectionCard(model.loc("Schritte", "Steps")) {
             if let steps = model.selectedRecord?.steps {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text("\(steps)")
                             .font(.system(.title2, design: .rounded).weight(.bold))
                             .foregroundStyle(Theme.textPrimary)
-                        Text("von \(Int(Self.goal)) Schritten")
+                        Text(model.loc("von \(Int(Self.goal)) Schritten", "of \(Int(Self.goal)) steps"))
                             .font(.caption)
                             .foregroundStyle(Theme.textSecondary)
                         Spacer()
@@ -180,7 +187,7 @@ struct StepsCard: View {
                     .frame(height: 8)
                 }
             } else {
-                EmptyDataHint(text: "Keine Schritte für diesen Tag erfasst.")
+                EmptyDataHint(text: model.loc("Keine Schritte für diesen Tag erfasst.", "No steps recorded for this day."))
             }
         }
     }

@@ -220,7 +220,7 @@ struct TodayOverviewCard: View {
                     )
                     overviewRow(
                         color: Theme.sleepPurple,
-                        label: "Schlaf",
+                        label: model.loc("Schlaf", "Sleep"),
                         value: (sleep?.hasData == true) ? "\(Int(sleep!.performance.rounded())) %" : "–"
                     )
                     overviewRow(
@@ -252,6 +252,19 @@ struct TodayOverviewCard: View {
 }
 
 /// Kleines Helferlein: zip für zwei Optionals.
+/// Recovery-Komponenten kommen mit deutschem Label aus der Engine — der
+/// stabile key erlaubt die Übersetzung im UI.
+func recoveryComponentLabel(_ key: String, fallback: String, _ lang: PulseLanguage) -> String {
+    guard lang == .en else { return fallback }
+    switch key {
+    case "hrv": return "HRV"
+    case "rhr": return "Resting HR"
+    case "sleep": return "Sleep"
+    case "resp": return "Respiration"
+    default: return fallback
+    }
+}
+
 func zip2<A, B>(_ a: A?, _ b: B?) -> (A, B)? {
     guard let a, let b else { return nil }
     return (a, b)
@@ -280,7 +293,7 @@ struct JournalFactorGrid: View {
                     HStack(spacing: 6) {
                         Image(systemName: factor.symbol)
                             .font(.caption)
-                        Text(factor.label)
+                        Text(factor.label(model.language))
                             .font(.caption)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
@@ -311,7 +324,7 @@ struct JournalCard: View {
     var body: some View {
         SectionCard("Journal") {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Was war los? Wirkt sich auf die Recovery der nächsten Nacht aus.")
+                Text(model.loc("Was war los? Wirkt sich auf die Recovery der nächsten Nacht aus.", "What happened? Affects the next night\u{2019}s recovery."))
                     .font(.caption)
                     .foregroundStyle(Theme.textSecondary)
                 JournalFactorGrid(dayKey: model.selectedDayKey)
@@ -333,14 +346,14 @@ struct JournalPromptSheet: View {
                     Text(Fmt.dayTitle(dayKey))
                         .font(.system(.title3, design: .rounded).weight(.bold))
                         .foregroundStyle(Theme.textPrimary)
-                    Text("Kurzer Check-in: Was war los? Je vollständiger dein Journal, desto besser werden deine Korrelationen.")
+                    Text(model.loc("Kurzer Check-in: Was war los? Je vollständiger dein Journal, desto besser werden deine Korrelationen.", "Quick check-in: what happened? The more complete your journal, the better your correlations."))
                         .font(.subheadline)
                         .foregroundStyle(Theme.textSecondary)
                     JournalFactorGrid(dayKey: dayKey)
                     Button {
                         dismiss()
                     } label: {
-                        Text("Fertig")
+                        Text(model.loc("Fertig", "Done"))
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -370,7 +383,7 @@ struct ZoneBarsView: View {
         VStack(spacing: 8) {
             ForEach(Array(zoneMinutes.enumerated().reversed()), id: \.offset) { index, minutes in
                 HStack(spacing: 10) {
-                    Text(StrainEngine.zoneLabels[index])
+                    Text(StrainEngine.zoneLabels(Fmt.language)[index])
                         .font(.caption)
                         .foregroundStyle(Theme.textSecondary)
                         .frame(width: 80, alignment: .leading)

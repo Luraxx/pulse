@@ -7,6 +7,11 @@ import SwiftUI
 
 private let appGroup = "group.net.dehlwes.pulse"
 
+/// Sprache aus dem App-Snapshot ("de"/"en", Default de).
+private var widgetIsGerman: Bool {
+    (UserDefaults(suiteName: appGroup)?.string(forKey: "app.language") ?? "de") == "de"
+}
+
 // MARK: - Daten
 
 struct PulseEntry: TimelineEntry {
@@ -109,7 +114,7 @@ struct RecoveryWidgetView: View {
                     Image(systemName: "waveform.path.ecg")
                         .font(.title2)
                         .foregroundStyle(zoneColor("none"))
-                    Text("Öffne Pulse")
+                    Text(widgetIsGerman ? "Öffne Pulse" : "Open Pulse")
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.6))
                 }
@@ -126,7 +131,7 @@ struct PulseRecoveryWidget: Widget {
             RecoveryWidgetView(entry: entry)
         }
         .configurationDisplayName("Recovery")
-        .description("Dein aktueller Recovery-Score auf einen Blick.")
+        .description(widgetIsGerman ? "Dein aktueller Recovery-Score auf einen Blick." : "Your current recovery score at a glance.")
         .supportedFamilies([.systemSmall])
     }
 }
@@ -153,7 +158,7 @@ struct OverviewWidgetView: View {
             VStack(alignment: .leading, spacing: 8) {
                 row(color: zoneColor(entry.zone), label: "Recovery",
                     value: entry.score.map { "\($0) %" } ?? "–")
-                row(color: sleepPurple, label: "Schlaf",
+                row(color: sleepPurple, label: widgetIsGerman ? "Schlaf" : "Sleep",
                     value: entry.sleepPerformance.map { "\(Int($0.rounded())) %" } ?? "–")
                 row(color: strainBlue, label: "Strain",
                     value: strainText)
@@ -191,8 +196,8 @@ struct PulseOverviewWidget: Widget {
         StaticConfiguration(kind: "PulseOverview", provider: PulseProvider()) { entry in
             OverviewWidgetView(entry: entry)
         }
-        .configurationDisplayName("Tages-Übersicht")
-        .description("Recovery, Schlaf und Strain (relativ zum Tagesziel) auf einen Blick.")
+        .configurationDisplayName(widgetIsGerman ? "Tages-Übersicht" : "Daily overview")
+        .description(widgetIsGerman ? "Recovery, Schlaf und Strain (relativ zum Tagesziel) auf einen Blick." : "Recovery, sleep and strain (relative to daily target) at a glance.")
         .supportedFamilies([.systemMedium])
     }
 }
