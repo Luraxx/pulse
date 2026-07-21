@@ -405,11 +405,34 @@ for i in 0..<12 {
 let insights = JournalEngine.insights(entries: journalEntries, recoveryByDay: journalRecovery)
 if let alc = insights.first(where: { $0.factor == .alcohol }) {
     check(alc.delta < -15, "Alkohol senkt Folge-Recovery deutlich (Δ \(Int(alc.delta)))")
-    check(alc.daysWith >= 3 && alc.daysWithout >= 3, "Beide Gruppen über Mindestfallzahl")
+    check(alc.daysWith >= 5 && alc.daysWithout >= 5, "Beide Gruppen über Whoop-Mindestfallzahl (5/5)")
+    check(alc.confidence == .solid, "Klarer, konsistenter Effekt → belastbar")
 } else {
     check(false, "Alkohol-Insight fehlt trotz Daten")
 }
 check(!insights.contains { $0.factor == .sick }, "Faktor ohne Einträge liefert kein Insight")
+check(JournalFactor.allCases.contains(.sex), "Sex ist als Journal-Faktor vorhanden")
+
+// Verrauschter Mini-Effekt → nur Tendenz, nicht belastbar.
+var noisyEntries: [String: JournalEntry] = [:]
+var noisyRecovery: [String: Int] = [:]
+// Gruppen-Mittel fast gleich (~68), aber hohe Streuung → kein echter Effekt.
+let noisyScores = [55, 58, 80, 77, 60, 63, 75, 74, 65, 70, 72, 68]
+for i in 0..<12 {
+    let day = DayKey.addDays("2026-05-01", i)
+    noisyEntries[day] = JournalEntry(date: day, factors: i % 2 == 0 ? [.lateMeal] : [])
+    noisyRecovery[DayKey.addDays("2026-05-01", i + 1)] = noisyScores[i]
+}
+if let noisy = JournalEngine.insights(entries: noisyEntries, recoveryByDay: noisyRecovery).first(where: { $0.factor == .lateMeal }) {
+    check(noisy.confidence == .emerging, "Kleiner Effekt in starkem Rauschen → nur Tendenz (Δ \(String(format: "%.1f", noisy.delta)), SE \(String(format: "%.1f", noisy.standardError)))")
+} else {
+    check(false, "Rausch-Insight fehlt trotz 6/6 Tagen")
+}
+
+check(!JournalEngine.assessmentReady(recoveryByDay: journalRecovery), "Unter 28 Recovery-Tagen: Monats-Auswertung noch nicht bereit")
+var manyRecoveries: [String: Int] = [:]
+for i in 0..<30 { manyRecoveries[DayKey.addDays("2026-05-01", i)] = 70 }
+check(JournalEngine.assessmentReady(recoveryByDay: manyRecoveries), "Ab 28 Recovery-Tagen: Monats-Auswertung bereit")
 
 let tmpJournal = FileManager.default.temporaryDirectory.appendingPathComponent("pulse-journal-\(UUID().uuidString)")
 let jStore = JournalStore(directory: tmpJournal)

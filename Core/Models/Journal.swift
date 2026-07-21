@@ -12,6 +12,7 @@ public enum JournalFactor: String, Codable, CaseIterable, Sendable, Identifiable
     case sick
     case screenBeforeBed
     case exercised
+    case sex
 
     public var id: String { rawValue }
 
@@ -24,6 +25,7 @@ public enum JournalFactor: String, Codable, CaseIterable, Sendable, Identifiable
         case .sick: return "Krank"
         case .screenBeforeBed: return "Bildschirm vor dem Schlaf"
         case .exercised: return "Trainiert"
+        case .sex: return "Sex"
         }
     }
 
@@ -36,6 +38,7 @@ public enum JournalFactor: String, Codable, CaseIterable, Sendable, Identifiable
         case .sick: return "thermometer.medium"
         case .screenBeforeBed: return "iphone"
         case .exercised: return "figure.run"
+        case .sex: return "heart.fill"
         }
     }
 }
@@ -106,6 +109,14 @@ public final class JournalStore {
 
 // MARK: - Korrelations-Engine
 
+/// Wie belastbar ein Insight ist.
+public enum InsightConfidence: String, Sendable {
+    /// Differenz übersteigt das Doppelte ihres Standardfehlers (~95 %-Niveau).
+    case solid
+    /// Mindestfallzahl erreicht, aber Differenz noch im Rauschbereich.
+    case emerging
+}
+
 public struct FactorInsight: Sendable, Identifiable {
     public let factor: JournalFactor
     /// Ø Recovery des Folgetags an Tagen MIT dem Faktor.
@@ -114,6 +125,9 @@ public struct FactorInsight: Sendable, Identifiable {
     public let avgWithout: Double
     /// Differenz in Recovery-Punkten (negativ = Faktor senkt Recovery).
     public let delta: Double
+    /// Standardfehler der Differenz (Welch) — Maß für das Rauschen.
+    public let standardError: Double
+    public let confidence: InsightConfidence
     public let daysWith: Int
     public let daysWithout: Int
 
@@ -121,11 +135,21 @@ public struct FactorInsight: Sendable, Identifiable {
 }
 
 /// Korreliert Journal-Faktoren mit der Recovery des **Folgetags** (die Nacht
-/// nach dem Faktor). Bewusst simpel und ehrlich: Mittelwert-Vergleich mit
-/// Mindestfallzahl statt überzogener Statistik-Claims.
+/// nach dem Faktor). Methodik angelehnt an Whoops Monthly Performance
+/// Assessment: mind. 5 Ja- und 5 Nein-Tage je Verhalten, erste
+/// Monats-Auswertung ab 28 Recovery-Tagen; Vergleich der Gruppen-Mittel,
+/// Belastbarkeit über den Standardfehler der Differenz (Welch).
+/// Korrelation, kein Kausalbeweis — das bleibt in der UI ausgewiesen.
 public enum JournalEngine {
-    /// Minimale Tage je Gruppe (mit/ohne), damit ein Insight gezeigt wird.
-    public static let minDaysPerGroup = 3
+    /// Whoop-Regel: mind. 5 Tage mit und 5 ohne das Verhalten.
+    public static let minDaysPerGroup = 5
+    /// Whoop-Regel: erste Monats-Auswertung ab 28 Tagen mit Recovery-Daten.
+    public static let assessmentMinRecoveryDays = 28
+
+    /// Genug Gesamtdaten für eine Monats-Auswertung?
+    public static func assessmentReady(recoveryByDay: [String: Int]) -> Bool {
+        recoveryByDay.count >= assessmentMinRecoveryDays
+    }
 
     public static func insights(
         entries: [String: JournalEntry],
@@ -153,11 +177,20 @@ public enum JournalEngine {
 
             let avgWith = Stats.mean(withValues)
             let avgWithout = Stats.mean(withoutValues)
+            let delta = avgWith - avgWithout
+
+            // Welch-Standardfehler der Mittelwert-Differenz.
+            let varWith = pow(Stats.standardDeviation(withValues), 2)
+            let varWithout = pow(Stats.standardDeviation(withoutValues), 2)
+            let se = sqrt(varWith / Double(withValues.count) + varWithout / Double(withoutValues.count))
+
             result.append(FactorInsight(
                 factor: factor,
                 avgWith: avgWith,
                 avgWithout: avgWithout,
-                delta: avgWith - avgWithout,
+                delta: delta,
+                standardError: se,
+                confidence: abs(delta) > 2 * max(se, 0.001) ? .solid : .emerging,
                 daysWith: withValues.count,
                 daysWithout: withoutValues.count
             ))
