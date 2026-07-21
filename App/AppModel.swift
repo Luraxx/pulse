@@ -113,6 +113,8 @@ final class AppModel {
     private(set) var syncLog: [SyncLogEntry] = []
     var selectedDayKey: String
     private(set) var profileName: String?
+    /// Tag, für den das Morgen-Journal-Popup gezeigt werden soll (i. d. R. gestern).
+    var journalPromptDay: String?
 
     // MARK: - Daten & abgeleitete Metriken
 
@@ -218,6 +220,38 @@ final class AppModel {
     private func recomputeJournalInsights() {
         let recoveryByDay = recoveryResults.mapValues { $0.score }
         journalInsights = JournalEngine.insights(entries: journal.entries, recoveryByDay: recoveryByDay)
+    }
+
+    /// Anzahl Tage mit Recovery — Grundlage für die Monats-Auswertung (ab 28).
+    var recoveryDayCount: Int {
+        recoveryResults.count
+    }
+
+    /// Zeigt das Journal-Popup für gestern — höchstens 1× pro Tag, nur wenn
+    /// gestern Daten hat und noch nichts eingetragen wurde.
+    func maybeShowJournalPrompt() {
+        guard hasData, journalPromptDay == nil else { return }
+        let yesterday = DayKey.addDays(DayKey.today(), -1)
+        guard journal.entry(for: yesterday).factors.isEmpty,
+              let record = store.days[yesterday],
+              record.restingHR != nil || !record.sleepSessions.isEmpty || record.steps != nil else { return }
+        let promptedKey = "journal.promptedFor"
+        guard defaults.string(forKey: promptedKey) != yesterday else { return }
+        defaults.set(yesterday, forKey: promptedKey)
+        journalPromptDay = yesterday
+    }
+
+    /// Plant die Routine-Benachrichtigungen neu (nach jedem Sync):
+    /// Morgen-Wecker für morgen 7:30 (ersetzt den heutigen) und die
+    /// Zubettgeh-Erinnerung für heute Abend.
+    func rescheduleRoutineNotifications() {
+        guard notificationsEnabled else { return }
+        PulseNotifications.scheduleMorningReminder()
+        if let bed = bedtimeTonight?.recommendedBedtimeMinutes {
+            PulseNotifications.scheduleBedtimeReminder(bedtimeMinutes: bed)
+        } else {
+            PulseNotifications.cancelBedtimeReminder()
+        }
     }
 
     // MARK: - Health-Warnung & Zubettgeh-Empfehlung
@@ -481,6 +515,9 @@ final class AppModel {
         if daily.hadErrors || hr.hadErrors {
             lastError = "Sync mit Warnungen abgeschlossen – Details im Sync-Protokoll."
         }
+
+        rescheduleRoutineNotifications()
+        maybeShowJournalPrompt()
     }
 
     func disconnect() {
@@ -539,7 +576,15 @@ final class AppModel {
         let today = DayKey.today()
         if let rec = recovery(for: today) {
             let sleepText = sleep(for: today).flatMap { $0.hasData ? "\(Fmt.hm($0.sleptMinutes)) h" : nil }
-            PulseNotifications.postRecoverySummary(recovery: rec.score, sleep: sleepText)
+            let yesterday = DayKey.addDays(today, -1)
+            let journalPending = journal.entry(for: yesterday).factors.isEmpty && store.days[yesterday] != nil
+            let alertMessage = HealthMonitor.alert(records: store.chronological(upTo: today, count: 10))?.message
+            PulseNotifications.postRecoverySummary(
+                recovery: rec.score,
+                sleep: sleepText,
+                journalPending: journalPending,
+                alertMessage: alertMessage
+            )
         }
     }
 

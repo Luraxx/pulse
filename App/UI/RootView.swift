@@ -4,6 +4,7 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        @Bindable var model = model
         Group {
             if model.onboarded {
                 MainTabs()
@@ -13,6 +14,14 @@ struct RootView: View {
         }
         .preferredColorScheme(.dark)
         .tint(Theme.teal)
+        .sheet(isPresented: Binding(
+            get: { model.journalPromptDay != nil },
+            set: { if !$0 { model.journalPromptDay = nil } }
+        )) {
+            if let dayKey = model.journalPromptDay {
+                JournalPromptSheet(dayKey: dayKey)
+            }
+        }
     }
 }
 

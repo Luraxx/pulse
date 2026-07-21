@@ -130,56 +130,106 @@ struct EmptyDataHint: View {
     }
 }
 
-// MARK: - Journal-Karte
+// MARK: - Journal
+
+/// Faktor-Chips für einen Tag — genutzt von der Dashboard-Karte und dem
+/// Morgen-Popup.
+struct JournalFactorGrid: View {
+    @Environment(AppModel.self) private var model
+    let dayKey: String
+
+    var body: some View {
+        let entry = model.journalEntry(for: dayKey)
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 108), spacing: 8)],
+            alignment: .leading,
+            spacing: 8
+        ) {
+            ForEach(JournalFactor.allCases) { factor in
+                let active = entry.factors.contains(factor)
+                Button {
+                    model.toggleJournal(factor, on: dayKey)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: factor.symbol)
+                            .font(.caption)
+                        Text(factor.label)
+                            .font(.caption)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(active ? Theme.teal.opacity(0.20) : Theme.cardElevated)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(active ? Theme.teal : .clear, lineWidth: 1)
+                    )
+                    .foregroundStyle(active ? Theme.teal : Theme.textSecondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
 
 struct JournalCard: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        let key = model.selectedDayKey
-        let entry = model.journalEntry(for: key)
         SectionCard("Journal") {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Was war los? Wirkt sich auf die Recovery der nächsten Nacht aus.")
                     .font(.caption)
                     .foregroundStyle(Theme.textSecondary)
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 108), spacing: 8)],
-                    alignment: .leading,
-                    spacing: 8
-                ) {
-                    ForEach(JournalFactor.allCases) { factor in
-                        let active = entry.factors.contains(factor)
-                        Button {
-                            model.toggleJournal(factor, on: key)
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: factor.symbol)
-                                    .font(.caption)
-                                Text(factor.label)
-                                    .font(.caption)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.85)
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(active ? Theme.teal.opacity(0.20) : Theme.cardElevated)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .stroke(active ? Theme.teal : .clear, lineWidth: 1)
-                            )
-                            .foregroundStyle(active ? Theme.teal : Theme.textSecondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                JournalFactorGrid(dayKey: model.selectedDayKey)
             }
         }
+    }
+}
+
+/// Morgen-Popup: kurzer Check-in für gestern, sobald neue Daten da sind.
+struct JournalPromptSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let dayKey: String
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(Fmt.dayTitle(dayKey))
+                        .font(.system(.title3, design: .rounded).weight(.bold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("Kurzer Check-in: Was war los? Je vollständiger dein Journal, desto besser werden deine Korrelationen.")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.textSecondary)
+                    JournalFactorGrid(dayKey: dayKey)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Fertig")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(RoundedRectangle(cornerRadius: 14).fill(Theme.teal))
+                            .foregroundStyle(Color.black)
+                    }
+                    .padding(.top, 6)
+                }
+                .padding(20)
+            }
+            .background(Theme.bg)
+            .navigationTitle("Journal")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium, .large])
+        .preferredColorScheme(.dark)
     }
 }
 

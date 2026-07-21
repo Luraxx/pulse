@@ -40,16 +40,30 @@ struct TrendsView: View {
 
     private var journalInsightsCard: some View {
         SectionCard("Journal-Korrelationen") {
+            let ready = model.recoveryDayCount >= JournalEngine.assessmentMinRecoveryDays
             if model.journalInsights.isEmpty {
-                EmptyDataHint(text: "Noch zu wenige Journal-Einträge. Hake im Tab Heute abends deine Faktoren ab – nach ein paar Wochen erscheinen hier die Zusammenhänge mit deiner Recovery.")
+                VStack(alignment: .leading, spacing: 10) {
+                    EmptyDataHint(text: "Hake im Tab Heute deine Faktoren ab. Ein Zusammenhang erscheint, sobald ein Faktor an mind. 5 Tagen an- UND 5 Tagen abgehakt war.")
+                    if !ready {
+                        assessmentProgress
+                    }
+                }
             } else {
                 VStack(spacing: 12) {
                     ForEach(model.journalInsights) { insight in
                         VStack(alignment: .leading, spacing: 3) {
-                            HStack {
+                            HStack(spacing: 6) {
                                 Label(insight.factor.label, systemImage: insight.factor.symbol)
                                     .font(.subheadline)
                                     .foregroundStyle(Theme.textPrimary)
+                                Text(insight.confidence == .solid ? "belastbar" : "Tendenz")
+                                    .font(.caption2)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().fill(insight.confidence == .solid
+                                        ? Theme.green.opacity(0.16)
+                                        : Theme.cardElevated))
+                                    .foregroundStyle(insight.confidence == .solid ? Theme.green : Theme.textSecondary)
                                 Spacer()
                                 Text(String(format: "%+.0f", insight.delta))
                                     .font(.system(.subheadline, design: .rounded).monospacedDigit().weight(.bold))
@@ -60,12 +74,28 @@ struct TrendsView: View {
                                 .foregroundStyle(Theme.textSecondary)
                         }
                     }
-                    Text("Differenz in Recovery-Punkten am Folgetag, stärkster Effekt zuerst. Korrelation, kein Beweis.")
+                    if !ready {
+                        assessmentProgress
+                    }
+                    Text("Differenz in Recovery-Punkten am Folgetag, stärkster Effekt zuerst. Belastbar heißt: Differenz größer als das Doppelte ihres Standardfehlers. Korrelation, kein Beweis.")
                         .font(.caption2)
                         .foregroundStyle(Theme.textSecondary.opacity(0.8))
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
+        }
+    }
+
+    private var assessmentProgress: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Monats-Auswertung ab \(JournalEngine.assessmentMinRecoveryDays) Recovery-Tagen – aktuell \(min(model.recoveryDayCount, JournalEngine.assessmentMinRecoveryDays))/\(JournalEngine.assessmentMinRecoveryDays).")
+                .font(.caption2)
+                .foregroundStyle(Theme.textSecondary)
+            ProgressView(
+                value: Double(min(model.recoveryDayCount, JournalEngine.assessmentMinRecoveryDays)),
+                total: Double(JournalEngine.assessmentMinRecoveryDays)
+            )
+            .tint(Theme.teal)
         }
     }
 

@@ -109,7 +109,7 @@ struct SettingsView: View {
         } header: {
             Text("Benachrichtigungen")
         } footer: {
-            Text("Pulse synchronisiert im Hintergrund und schickt dir morgens deine Recovery – plus eine Warnung, bevor die Google-Verbindung nach 7 Tagen abläuft. Wann iOS den Hintergrund-Sync ausführt, entscheidet das System (meist nachts/morgens, nicht sekundengenau).")
+            Text("Morgens: deine Recovery nach dem Hintergrund-Sync – oder um 7:30 die Bitte, kurz zu öffnen, falls iOS den Sync noch nicht ausgeführt hat. Abends: Erinnerung ~30 min vor deiner empfohlenen Zubettgehzeit. Dazu Gesundheits-Warnungen in der Morgen-Meldung und eine Warnung, bevor die Google-Verbindung (7 Tage) abläuft. Alles rein lokal, nichts wird geraten – Zahlen kommen nur aus echten Syncs.")
         }
     }
 
