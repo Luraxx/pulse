@@ -101,37 +101,61 @@ struct TrendsView: View {
 
     // MARK: - Datenreihen
 
-    private var recoveryPoints: [TrendPoint] {
-        trendPoints(model.trend(range, endingAt: today) { record in
+    /// Ab 90 Tagen werden alle Charts auf Wochenmittel aggregiert —
+    /// 90 Tagesbalken auf Handybreite sind nicht lesbar.
+    private var isWeekly: Bool { range >= 90 }
+
+    private func adaptive(_ raw: [(key: String, value: Double)]) -> [TrendPoint] {
+        trendPoints(isWeekly ? TrendMath.weeklyMean(raw) : raw)
+    }
+
+    private var rawRecovery: [(key: String, value: Double)] {
+        model.trend(range, endingAt: today) { record in
             model.recovery(for: record.date).map { Double($0.score) }
-        })
+        }
     }
 
-    private var strainPoints: [TrendPoint] {
-        trendPoints(model.trend(range, endingAt: today) { record in
+    private var rawStrain: [(key: String, value: Double)] {
+        model.trend(range, endingAt: today) { record in
             model.strain(for: record.date)?.strain
-        })
+        }
     }
 
-    private var sleepPoints: [TrendPoint] {
-        trendPoints(model.trend(range, endingAt: today) { record in
+    private var rawSleep: [(key: String, value: Double)] {
+        model.trend(range, endingAt: today) { record in
             let analysis = model.sleep(for: record.date)
             return (analysis?.hasData == true) ? analysis?.sleptMinutes : nil
-        })
+        }
     }
 
+    private var rawHrv: [(key: String, value: Double)] {
+        model.trend(range, endingAt: today) { $0.hrvRmssd }
+    }
+
+    private var recoveryPoints: [TrendPoint] { adaptive(rawRecovery) }
+    private var strainPoints: [TrendPoint] { adaptive(rawStrain) }
+    private var sleepPoints: [TrendPoint] { adaptive(rawSleep) }
+
     private var needPoints: [TrendPoint] {
-        trendPoints(model.trend(range, endingAt: today) { record in
+        adaptive(model.trend(range, endingAt: today) { record in
             model.sleep(for: record.date)?.needMinutes
         })
     }
 
-    private var hrvPoints: [TrendPoint] {
-        trendPoints(model.trend(range, endingAt: today) { $0.hrvRmssd })
-    }
+    private var hrvPoints: [TrendPoint] { adaptive(rawHrv) }
 
     private var rhrPoints: [TrendPoint] {
-        trendPoints(model.trend(range, endingAt: today) { $0.restingHR })
+        adaptive(model.trend(range, endingAt: today) { $0.restingHR })
+    }
+
+    /// Kleine Fußnote unter Wochen-Charts.
+    @ViewBuilder
+    private var weeklyNote: some View {
+        if isWeekly {
+            Text("Ein Punkt = Wochenmittel")
+                .font(.caption2)
+                .foregroundStyle(Theme.textSecondary.opacity(0.8))
+        }
     }
 
     // MARK: - Karten
@@ -141,37 +165,55 @@ struct TrendsView: View {
             HStack(spacing: 12) {
                 StatCell(
                     label: "Recovery",
-                    value: average(recoveryPoints).map { "\(Int($0.rounded())) %" } ?? "–",
-                    color: average(recoveryPoints).map { Theme.recoveryColor(score: Int($0)) } ?? Theme.textPrimary
+                    value: average(rawRecovery).map { "\(Int($0.rounded())) %" } ?? "–",
+                    color: average(rawRecovery).map { Theme.recoveryColor(score: Int($0)) } ?? Theme.textPrimary
                 )
                 StatCell(
                     label: "Strain",
-                    value: average(strainPoints).map { String(format: "%.1f", $0) } ?? "–",
+                    value: average(rawStrain).map { String(format: "%.1f", $0) } ?? "–",
                     color: Theme.strainBlue
                 )
                 StatCell(
                     label: "Schlaf",
-                    value: average(sleepPoints).map { "\(Fmt.hm($0)) h" } ?? "–",
+                    value: average(rawSleep).map { "\(Fmt.hm($0)) h" } ?? "–",
                     color: Theme.sleepPurple
                 )
                 StatCell(
                     label: "HRV",
-                    value: average(hrvPoints).map { "\(Int($0.rounded())) ms" } ?? "–",
+                    value: average(rawHrv).map { "\(Int($0.rounded())) ms" } ?? "–",
                     color: Theme.teal
                 )
             }
         }
     }
 
-    private func average(_ points: [TrendPoint]) -> Double? {
-        guard !points.isEmpty else { return nil }
-        return points.reduce(0) { $0 + $1.value } / Double(points.count)
+    private func average(_ pairs: [(key: String, value: Double)]) -> Double? {
+        guard !pairs.isEmpty else { return nil }
+        return pairs.reduce(0) { $0 + $1.value } / Double(pairs.count)
     }
 
     private var recoveryStrainCard: some View {
         SectionCard("Recovery vs. Strain") {
             if recoveryPoints.count >= 2 {
-                RecoveryStrainChart(recovery: recoveryPoints, strain: strainPoints)
+                if range == 30 {
+                    // Tageswerte gedimmt, Trend über 7-Tage-Durchschnittslinien.
+                    RecoveryStrainChart(
+                        recovery: recoveryPoints,
+                        strain: trendPoints(TrendMath.movingAverage(rawStrain, window: 7)),
+                        recoveryTrend: trendPoints(TrendMath.movingAverage(rawRecovery, window: 7)),
+                        barOpacity: 0.22,
+                        showStrainSymbols: false,
+                        aggregationNote: "Linien = 7-Tage-Schnitt"
+                    )
+                } else if isWeekly {
+                    RecoveryStrainChart(
+                        recovery: recoveryPoints,
+                        strain: strainPoints,
+                        aggregationNote: "Wochenmittel"
+                    )
+                } else {
+                    RecoveryStrainChart(recovery: recoveryPoints, strain: strainPoints)
+                }
                 Text("Ideal: hohe Recovery an Tagen vor hohem Strain. Dauerhaft hoher Strain bei niedriger Recovery deutet auf Übertraining hin.")
                     .font(.caption2)
                     .foregroundStyle(Theme.textSecondary)
@@ -185,10 +227,17 @@ struct TrendsView: View {
         SectionCard("Schlafdauer vs. Bedarf") {
             if sleepPoints.count >= 2 {
                 SleepTrendChart(slept: sleepPoints, need: needPoints)
+                weeklyNote
             } else {
                 EmptyDataHint(text: "Noch zu wenige Nächte.")
             }
         }
+    }
+
+    /// Letzter Tages-Key mit Recovery — bei Wochenmitteln zeigt der letzte
+    /// Chart-Punkt auf einen Montag, der selbst keine Recovery haben muss.
+    private var latestRecoveryKey: String {
+        rawRecovery.last?.key ?? today
     }
 
     private var hrvCard: some View {
@@ -196,10 +245,11 @@ struct TrendsView: View {
             if hrvPoints.count >= 2 {
                 BaselineLineChart(
                     points: hrvPoints,
-                    baseline: model.recovery(for: hrvPoints.last?.key ?? today)?.hrvBaseline,
+                    baseline: model.recovery(for: latestRecoveryKey)?.hrvBaseline,
                     color: Theme.teal,
                     isLogBaseline: true
                 )
+                weeklyNote
             } else {
                 EmptyDataHint(text: "Noch zu wenige HRV-Werte.")
             }
@@ -211,9 +261,10 @@ struct TrendsView: View {
             if rhrPoints.count >= 2 {
                 BaselineLineChart(
                     points: rhrPoints,
-                    baseline: model.recovery(for: rhrPoints.last?.key ?? today)?.rhrBaseline,
+                    baseline: model.recovery(for: latestRecoveryKey)?.rhrBaseline,
                     color: Theme.red
                 )
+                weeklyNote
             } else {
                 EmptyDataHint(text: "Noch zu wenige Ruhepuls-Werte.")
             }

@@ -60,3 +60,37 @@ public enum Stats {
         min(max(value, lower), upper)
     }
 }
+
+/// Aggregationen für Trend-Ansichten: lange Zeiträume werden erst durch
+/// Glättung/Wochenmittel lesbar (90 Tagesbalken sind nur Rauschen).
+public enum TrendMath {
+    /// Gleitender Mittelwert über die letzten `window` Kalendertage
+    /// (fehlende Tage werden übersprungen, nicht als 0 gezählt).
+    public static func movingAverage(
+        _ pairs: [(key: String, value: Double)],
+        window: Int
+    ) -> [(key: String, value: Double)] {
+        guard window > 1 else { return pairs }
+        let byKey = Dictionary(pairs.map { ($0.key, $0.value) }, uniquingKeysWith: { a, _ in a })
+        return pairs.map { point in
+            let start = DayKey.addDays(point.key, -(window - 1))
+            let values = DayKey.keys(from: start, to: point.key).compactMap { byKey[$0] }
+            return (point.key, Stats.mean(values))
+        }
+    }
+
+    /// Mittelwert je Kalenderwoche; Key = Montag der jeweiligen Woche.
+    public static func weeklyMean(
+        _ pairs: [(key: String, value: Double)]
+    ) -> [(key: String, value: Double)] {
+        var buckets: [String: [Double]] = [:]
+        for point in pairs {
+            guard let date = DayKey.date(from: point.key) else { continue }
+            let weekday = Calendar.current.component(.weekday, from: date) // 1 = So
+            let daysSinceMonday = (weekday + 5) % 7
+            let monday = DayKey.addDays(point.key, -daysSinceMonday)
+            buckets[monday, default: []].append(point.value)
+        }
+        return buckets.keys.sorted().map { ($0, Stats.mean(buckets[$0]!)) }
+    }
+}

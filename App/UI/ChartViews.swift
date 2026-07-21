@@ -248,6 +248,12 @@ struct BaselineLineChart: View {
 struct RecoveryStrainChart: View {
     let recovery: [TrendPoint] // 0–100
     let strain: [TrendPoint]   // 0–21
+    /// Optionale geglättete Recovery-Linie (7-Tage-Durchschnitt).
+    var recoveryTrend: [TrendPoint] = []
+    var barOpacity: Double = 0.55
+    var showStrainSymbols = true
+    /// Zusatz in der Legende, z. B. "Wochenmittel" oder "7-Tage-Schnitt".
+    var aggregationNote: String? = nil
     var height: CGFloat = 170
 
     var body: some View {
@@ -258,19 +264,30 @@ struct RecoveryStrainChart: View {
                         x: .value("Tag", point.date, unit: .day),
                         y: .value("Recovery", point.value)
                     )
-                    .foregroundStyle(Theme.recoveryColor(score: Int(point.value)).opacity(0.55))
+                    .foregroundStyle(Theme.recoveryColor(score: Int(point.value)).opacity(barOpacity))
                     .cornerRadius(3)
+                }
+                ForEach(recoveryTrend) { point in
+                    LineMark(
+                        x: .value("Tag", point.date, unit: .day),
+                        y: .value("RecoveryTrend", point.value),
+                        series: .value("Serie", "recoveryTrend")
+                    )
+                    .foregroundStyle(Theme.green)
+                    .interpolationMethod(.monotone)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5))
                 }
                 ForEach(strain) { point in
                     LineMark(
                         x: .value("Tag", point.date, unit: .day),
-                        y: .value("Strain", point.value * 100 / 21)
+                        y: .value("Strain", point.value * 100 / 21),
+                        series: .value("Serie", "strain")
                     )
                     .foregroundStyle(Theme.strainBlue)
                     .interpolationMethod(.monotone)
                     .lineStyle(StrokeStyle(lineWidth: 2))
                     .symbol(.circle)
-                    .symbolSize(14)
+                    .symbolSize(showStrainSymbols ? 14 : 0)
                 }
             }
             .chartYScale(domain: 0...100)
@@ -286,6 +303,9 @@ struct RecoveryStrainChart: View {
                 HStack(spacing: 5) {
                     Capsule().fill(Theme.strainBlue).frame(width: 12, height: 3)
                     Text("Strain (skaliert auf 100)")
+                }
+                if let aggregationNote {
+                    Text("· \(aggregationNote)")
                 }
             }
             .font(.caption2)

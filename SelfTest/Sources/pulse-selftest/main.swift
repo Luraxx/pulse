@@ -160,6 +160,30 @@ if let baseline = Stats.baseline([60, 62, 64, 66, 68]) {
 }
 check(Stats.baseline([1, 2]) == nil, "Baseline braucht mindestens 3 Werte")
 
+// MARK: Trend-Aggregation
+
+section("Trend-Aggregation")
+let maPairs: [(key: String, value: Double)] = (0..<10).map { (DayKey.addDays("2026-06-01", $0), Double($0)) }
+let ma3 = TrendMath.movingAverage(maPairs, window: 3)
+check(ma3.count == 10, "Gleitender Mittelwert behält die Punktzahl")
+check(abs(ma3[0].value - 0) < 1e-9, "Erster Punkt: Mittel aus sich selbst")
+check(abs(ma3[2].value - 1) < 1e-9, "Fenster 3 über 0,1,2 → 1")
+check(abs(ma3[9].value - 8) < 1e-9, "Fenster 3 über 7,8,9 → 8")
+// Lücken: fehlende Tage werden übersprungen, nicht als 0 gezählt.
+let gapPairs: [(key: String, value: Double)] = [("2026-06-01", 10), ("2026-06-03", 30)]
+let maGap = TrendMath.movingAverage(gapPairs, window: 3)
+check(abs(maGap[1].value - 20) < 1e-9, "Lücke im Fenster → Mittel nur über vorhandene Werte")
+
+// 2026-07-19 war ein Sonntag, 2026-07-20 ein Montag.
+let weekPairs: [(key: String, value: Double)] = [
+    ("2026-07-17", 60), ("2026-07-18", 70), ("2026-07-19", 80), // Woche ab Mo 13.07.
+    ("2026-07-20", 40), ("2026-07-21", 60),                     // Woche ab Mo 20.07.
+]
+let weekly = TrendMath.weeklyMean(weekPairs)
+check(weekly.count == 2, "Zwei Kalenderwochen → zwei Punkte")
+check(weekly[0].key == "2026-07-13" && abs(weekly[0].value - 70) < 1e-9, "Woche 1: Montag-Key + Mittel 70")
+check(weekly[1].key == "2026-07-20" && abs(weekly[1].value - 50) < 1e-9, "Woche 2: Montag-Key + Mittel 50")
+
 // MARK: Strain-Engine
 
 section("Strain-Engine")
