@@ -227,7 +227,7 @@ struct TodayOverviewCard: View {
                         color: Theme.strainBlue,
                         label: "Strain",
                         value: strain.map { s in
-                            target.map { String(format: "%.1f / Ziel %.1f", s.strain, $0) }
+                            target.map { String(format: model.loc("%.1f / Ziel %.1f", "%.1f / target %.1f"), s.strain, $0) }
                                 ?? String(format: "%.1f", s.strain)
                         } ?? "–"
                     )

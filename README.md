@@ -10,10 +10,14 @@ against your own baseline. No server, no subscription, no tracking.
 > connection. See [Disclaimer](#disclaimer). Licensed under **Apache-2.0**.
 
 <p align="center">
-  <img src="docs/screenshots/today.png" alt="Today — recovery score, health alert and Pulse Age" width="270">
-  &nbsp;&nbsp;
-  <img src="docs/screenshots/trends.png" alt="Trends — recovery vs. strain and sleep over 7 days" width="270">
+  <img src="docs/screenshots/today.png" width="19%" alt="Today — daily overview rings, health notice and monitor">
+  <img src="docs/screenshots/pulse-age.png" width="19%" alt="Sleep, Pulse Age and daily strain with target">
+  <img src="docs/screenshots/trends.png" width="19%" alt="Trends — recovery vs. strain over 30 days">
+  <img src="docs/screenshots/health.png" width="19%" alt="Health monitor — resting HR, HRV, respiration">
+  <img src="docs/screenshots/customize.png" width="19%" alt="Customizable Today page">
 </p>
+
+<p align="center"><sub>Today · Pulse Age & strain · Trends · Health monitor · Customizable layout — English & German, light/dark.</sub></p>
 
 ## What it does
 
@@ -108,10 +112,25 @@ cd SelfTest && swift run pulse-selftest
 
 ## Contributing
 
-Personal hobby project, shared as-is — issues and pull requests are welcome but may
-be answered slowly. By contributing you agree your changes are licensed under
-Apache-2.0. There is intentionally no analytics, telemetry or server component;
-please keep it that way.
+This is a personal hobby project, shared in the hope it's useful — and **feedback is
+genuinely welcome**. It's early, so you *will* find rough edges.
+
+**Found a bug or a number that looks wrong?** Please [open an issue](../../issues/new).
+Helpful things to include:
+
+- What you expected vs. what you saw (a screenshot says a lot).
+- If a metric fails to sync: the relevant line from the in-app **sync log**
+  (*More → Sync log*). The Google Health API is new (v4) and some data-type names
+  aren't final — a single error line is often enough to pin down the fix.
+- Your iOS version.
+
+**Pull requests** are welcome too. Before opening one, run the self-tests
+(`cd SelfTest && swift run pulse-selftest`) — the whole metric core is covered by
+them, so they catch most regressions without needing Xcode. Keep the app **local and
+private**: no analytics, telemetry, accounts or server component, by design. By
+contributing you agree your changes are licensed under Apache-2.0.
+
+I may be slow to respond — it's a side project — but every report is read.
 
 ## Disclaimer
 
