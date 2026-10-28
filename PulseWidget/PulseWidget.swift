@@ -5,7 +5,25 @@ import SwiftUI
 // App-Group-Container (die App schreibt ihn via WidgetBridge). Bewusst ohne
 // Core-Abhängigkeit — nur Primitive.
 
-private let appGroup = "group.net.dehlwes.pulse"
+/// App Group dieses Builds, gleiche Auswahl wie `WidgetBridge.appGroup` in der App
+/// (synchron halten). Sideloading-Tools machen `ALTAppGroups` und die neue Bundle-ID
+/// an der App fest, daher wird zusätzlich die umschließende App gelesen
+/// (Pulse.app/PlugIns/PulseWidget.appex).
+private let appGroup: String = {
+    let fallback = "group.net.dehlwes.pulse"
+    let appURL = Bundle.main.bundleURL.deletingLastPathComponent().deletingLastPathComponent()
+    let hostApp = Bundle(url: appURL)
+    var candidates = [Bundle.main, hostApp].compactMap { $0 }.flatMap {
+        $0.object(forInfoDictionaryKey: "ALTAppGroups") as? [String] ?? []
+    }
+    candidates.append(fallback)
+    if let bundleID = hostApp?.bundleIdentifier {
+        candidates.append("group." + bundleID)
+    }
+    return candidates.first {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil
+    } ?? fallback
+}()
 
 /// Sprache aus dem App-Snapshot ("de"/"en", Default de).
 private var widgetIsGerman: Bool {
