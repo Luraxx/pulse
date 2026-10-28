@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Ready-made `Pulse.ipa`** on every GitHub release, built by GitHub Actions, for
+  installing with SideStore, AltStore or iloader without a Mac. Guide in
+  [`SIDELOADING.md`](SIDELOADING.md) ([#1](https://github.com/Luraxx/pulse/issues/1)).
+- The *Connect Google Health* screen shows the app's bundle ID, which the Google iOS
+  client has to match.
+
+### Fixed
+
+- The home-screen widget keeps working after sideloading: the App Group is taken from
+  what the signing tool registered instead of a fixed name.
+- The app version follows the release tag instead of a fixed 1.0.
+
 ## [0.1.0] - 2026-07-22
 
 First public release. Everything runs on device, no server and no subscription.
@@ -61,4 +77,5 @@ First public release. Everything runs on device, no server and no subscription.
   roughly 30 days before it leaves the calibrating state.
 - The in-app sync log is still German only.
 
+[Unreleased]: https://github.com/Luraxx/pulse/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/Luraxx/pulse/releases/tag/v0.1.0
