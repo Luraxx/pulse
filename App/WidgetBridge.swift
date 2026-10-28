@@ -4,7 +4,24 @@ import WidgetKit
 /// Schreibt einen kleinen Recovery-Snapshot in den geteilten App-Group-Container,
 /// den das Widget liest. Bewusst nur Primitive (kein geteilter Typ nötig).
 enum WidgetBridge {
-    static let appGroup = "group.net.dehlwes.pulse"
+    /// App Group, auf die dieses Build tatsächlich Zugriff hat. Xcode-Builds nutzen
+    /// fest `group.net.dehlwes.pulse`. Sideloading-Tools signieren mit einer eigenen
+    /// Gruppe unter dem Team des Nutzers neu: SideStore/AltStore tragen sie als
+    /// `ALTAppGroups` in die Info.plist ein, iloader nimmt `group.<neue Bundle-ID>`.
+    /// Gewählt wird der erste Kandidat, für den iOS einen Container herausgibt (das
+    /// tut es nur mit passendem Entitlement). Gegenstück im Widget: `appGroup` in
+    /// PulseWidget.swift, beide synchron halten.
+    static let appGroup: String = {
+        let fallback = "group.net.dehlwes.pulse"
+        var candidates = Bundle.main.object(forInfoDictionaryKey: "ALTAppGroups") as? [String] ?? []
+        candidates.append(fallback)
+        if let bundleID = Bundle.main.bundleIdentifier {
+            candidates.append("group." + bundleID)
+        }
+        return candidates.first {
+            FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil
+        } ?? fallback
+    }()
 
     enum Key {
         static let score = "recovery.score"

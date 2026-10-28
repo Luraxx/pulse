@@ -238,6 +238,18 @@ struct ConnectSheet: View {
                     Text(model.loc("Einmalig nötig: In der Google Cloud Console die **Google Health API** aktivieren, einen OAuth-Client vom Typ **iOS** anlegen und die Client-ID hier einfügen. Schritt-für-Schritt-Anleitung in der README des Projekts.", "One-time setup: enable the **Google Health API** in the Google Cloud Console, create an **iOS** OAuth client and paste the client ID here. Step-by-step guide in the project README."))
                 }
 
+                // Nach Sideloading weicht die Bundle-ID vom Standard ab (das Tool hängt
+                // die Team-ID an), der iOS-Client muss aber genau diese bekommen.
+                Section {
+                    Text(Bundle.main.bundleIdentifier ?? "–")
+                        .font(.footnote.monospaced())
+                        .textSelection(.enabled)
+                } header: {
+                    Text(model.loc("Bundle-ID dieser App", "Bundle ID of this app"))
+                } footer: {
+                    Text(model.loc("Genau diese Bundle-ID beim Anlegen des iOS-Clients eintragen. Lange drücken zum Kopieren.", "Enter exactly this bundle ID when creating the iOS client. Long-press to copy."))
+                }
+
                 Section {
                     Button {
                         working = true
