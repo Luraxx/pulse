@@ -33,7 +33,8 @@ type never blocks the rest.
 ## Requirements
 
 - iPhone on iOS 17+ with the Google Health app, Fitbit Air paired
-- Mac with **Xcode 16+**
+- Mac with **Xcode 16+**, or no Mac at all: sideload the ready-made IPA, see
+  [`SIDELOADING.md`](SIDELOADING.md)
 - `xcodegen` (`brew install xcodegen`), only needed if you change `project.yml`
 - A Google account, the same one used in the Google Health app
 
@@ -60,7 +61,9 @@ in this repository.
 5. **Create an iOS client ID:** APIs & Services → **Credentials** →
    *Create Credentials* → *OAuth client ID* → application type **iOS** → bundle ID
    matching the one in `project.yml` (default `net.dehlwes.pulse`, change it to your
-   own reverse-domain id when you fork). Copy the generated client ID, it looks like
+   own reverse-domain id when you fork). Sideloaded the IPA? Then use the bundle ID
+   that Pulse shows on its *Connect Google Health* screen, the sideloading tool
+   changes it. Copy the generated client ID, it looks like
    `1234567890-abc….apps.googleusercontent.com`. No client secret is needed (PKCE).
 
 > **Testing mode note:** while the project sits in "Testing", refresh tokens expire

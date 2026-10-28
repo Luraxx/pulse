@@ -1,0 +1,85 @@
+name: ipa
+
+# Builds Pulse.ipa for sideloading (SideStore, AltStore, iloader), so people
+# without a Mac can install the app. See SIDELOADING.md.
+#
+# The IPA carries no Apple signature of ours: the sideloading tool re-signs it
+# with the user's own Apple ID on install. It is only ad-hoc signed so the App
+# Group entitlement stays readable, which the tools need to register a group
+# for the widget.
+#
+# - release published: the IPA is attached to that release
+# - pull request / manual run: the IPA is kept as a workflow artifact, which
+#   also checks that the iOS app (not just Core) still builds
+
+on:
+  release:
+    types: [published]
+  pull_request:
+    paths:
+      - "App/**"
+      - "Core/**"
+      - "PulseWidget/**"
+      - "Pulse.xcodeproj/**"
+      - "project.yml"
+      - ".github/workflows/ipa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    name: Build IPA
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      # On a release the tag becomes the app version (v0.2.0 → 0.2.0, a suffix
+      # like -beta.1 is dropped because iOS expects plain numbers). Otherwise
+      # MARKETING_VERSION from project.yml is kept.
+      - name: Build app (unsigned)
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "release" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            set -- MARKETING_VERSION="${VERSION%%-*}"
+          fi
+          xcodebuild build \
+            -project Pulse.xcodeproj \
+            -scheme Pulse \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            "$@"
+
+      # Extension first, then the app around it, each with its entitlements.
+      - name: Package IPA
+        run: |
+          mkdir -p dist/Payload
+          cp -R build/Build/Products/Release-iphoneos/Pulse.app dist/Payload/
+          APP=dist/Payload/Pulse.app
+          codesign --force --sign - --entitlements PulseWidget/PulseWidget.entitlements "$APP/PlugIns/PulseWidget.appex"
+          codesign --force --sign - --entitlements App/Pulse.entitlements "$APP"
+          (cd dist && zip -qry Pulse.ipa Payload)
+          echo "Version: $(plutil -extract CFBundleShortVersionString raw "$APP/Info.plist")"
+          ls -lh dist/Pulse.ipa
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/Pulse.ipa --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Keep as workflow artifact
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pulse-ipa
+          path: dist/Pulse.ipa
+          retention-days: 14

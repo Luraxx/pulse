@@ -86,6 +86,10 @@ Health**, paste your OAuth client ID (iOS client, bundle id `net.dehlwes.pulse`,
 PKCE — no client secret), sign in, done. No Google setup? Start **Demo mode** for 120
 days of realistic sample data.
 
+**No Mac?** Every [release](../../releases) ships a ready-made `Pulse.ipa` that you can
+install with SideStore, AltStore or iloader from Windows, Linux or macOS. See
+[`SIDELOADING.md`](SIDELOADING.md).
+
 > **Bring your own Google Cloud project.** There is no shared backend or API key in
 > this repository — Pulse uses PKCE and stores nothing server-side. Every user
 > creates their own Google Cloud project and iOS OAuth client and stays subject to
