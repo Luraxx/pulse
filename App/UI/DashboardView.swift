@@ -82,7 +82,7 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Module
+    // MARK: - Modules
 
     @ViewBuilder
     private func moduleView(_ module: DashboardModule) -> some View {
@@ -206,7 +206,7 @@ struct DashboardView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Pulse Alter
+    // MARK: - Pulse Age
 
     private var ageCard: some View {
         NavigationLink {
@@ -283,7 +283,7 @@ struct DashboardView: View {
         return Theme.textSecondary
     }
 
-    // MARK: - Schlaf
+    // MARK: - Sleep
 
     private var sleepCard: some View {
         NavigationLink {
@@ -417,7 +417,7 @@ struct DashboardView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Health-Monitor
+    // MARK: - Health Monitor
 
     private var healthCard: some View {
         SectionCard(model.loc("Health-Monitor", "Health monitor")) {
@@ -465,7 +465,7 @@ struct DashboardView: View {
     }
 }
 
-// MARK: - Tages-Chips
+// MARK: - Day chips
 
 struct DayChips: View {
     @Environment(AppModel.self) private var model

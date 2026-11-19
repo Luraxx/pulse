@@ -2,7 +2,7 @@ import Foundation
 import AuthenticationServices
 import UIKit
 
-/// Präsentiert den Google-OAuth-Flow über ASWebAuthenticationSession.
+/// Presents the Google OAuth flow via ASWebAuthenticationSession.
 @MainActor
 final class WebAuthenticator: NSObject, ASWebAuthenticationPresentationContextProviding {
     static let shared = WebAuthenticator()
@@ -17,7 +17,7 @@ final class WebAuthenticator: NSObject, ASWebAuthenticationPresentationContextPr
                 if let callbackURL {
                     continuation.resume(returning: callbackURL)
                 } else {
-                    continuation.resume(throwing: error ?? AuthError.exchangeFailed("Kein Callback erhalten"))
+                    continuation.resume(throwing: error ?? AuthError.exchangeFailed("No callback received"))
                 }
             }
             session.presentationContextProvider = self
@@ -25,7 +25,7 @@ final class WebAuthenticator: NSObject, ASWebAuthenticationPresentationContextPr
             self.activeSession = session
             if !session.start(), !resumed {
                 resumed = true
-                continuation.resume(throwing: AuthError.exchangeFailed("Browser-Session konnte nicht gestartet werden"))
+                continuation.resume(throwing: AuthError.exchangeFailed("Could not start the browser session"))
             }
         }
     }

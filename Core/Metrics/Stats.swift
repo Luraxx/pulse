@@ -1,6 +1,6 @@
 import Foundation
 
-/// Rollierende Baseline (Mittelwert ± Standardabweichung) einer Metrik.
+/// Rolling baseline (mean ± standard deviation) of a metric.
 public struct Baseline: Sendable {
     public let mean: Double
     public let sd: Double
@@ -12,7 +12,7 @@ public struct Baseline: Sendable {
         self.count = count
     }
 
-    /// Ab 5 Datenpunkten gilt die Baseline als belastbar.
+    /// From 5 data points the baseline counts as solid.
     public var isReliable: Bool { count >= 5 }
 
     public func z(_ value: Double, minSD: Double = 0.0001) -> Double {
@@ -33,7 +33,7 @@ public enum Stats {
         return sqrt(variance)
     }
 
-    /// Perzentil mit linearer Interpolation, p in 0...1.
+    /// Percentile with linear interpolation, p in 0...1.
     public static func percentile(_ values: [Double], _ p: Double) -> Double? {
         guard !values.isEmpty else { return nil }
         let sorted = values.sorted()
@@ -46,7 +46,7 @@ public enum Stats {
         return sorted[lower] * (1 - fraction) + sorted[upper] * fraction
     }
 
-    /// Baseline aus einer Werteliste; nil bei weniger als 3 Punkten.
+    /// Baseline from a list of values; nil with fewer than 3 points.
     public static func baseline(_ values: [Double]) -> Baseline? {
         guard values.count >= 3 else { return nil }
         return Baseline(mean: mean(values), sd: standardDeviation(values), count: values.count)
@@ -61,11 +61,11 @@ public enum Stats {
     }
 }
 
-/// Aggregationen für Trend-Ansichten: lange Zeiträume werden erst durch
-/// Glättung/Wochenmittel lesbar (90 Tagesbalken sind nur Rauschen).
+/// Aggregations for trend views: long periods only become readable
+/// through smoothing/weekly means (90 daily bars are just noise).
 public enum TrendMath {
-    /// Gleitender Mittelwert über die letzten `window` Kalendertage
-    /// (fehlende Tage werden übersprungen, nicht als 0 gezählt).
+    /// Moving average over the last `window` calendar days
+    /// (missing days are skipped, not counted as 0).
     public static func movingAverage(
         _ pairs: [(key: String, value: Double)],
         window: Int
@@ -79,14 +79,14 @@ public enum TrendMath {
         }
     }
 
-    /// Mittelwert je Kalenderwoche; Key = Montag der jeweiligen Woche.
+    /// Mean per calendar week; key = Monday of that week.
     public static func weeklyMean(
         _ pairs: [(key: String, value: Double)]
     ) -> [(key: String, value: Double)] {
         var buckets: [String: [Double]] = [:]
         for point in pairs {
             guard let date = DayKey.date(from: point.key) else { continue }
-            let weekday = Calendar.current.component(.weekday, from: date) // 1 = So
+            let weekday = Calendar.current.component(.weekday, from: date) // 1 = Sun
             let daysSinceMonday = (weekday + 5) % 7
             let monday = DayKey.addDays(point.key, -daysSinceMonday)
             buckets[monday, default: []].append(point.value)

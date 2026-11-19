@@ -1,5 +1,5 @@
 // swift-tools-version:5.9
-// Dev-only: Verifiziert die Core-Logik ohne Xcode/iOS-SDK.
+// Dev-only: verifies the Core logic without Xcode/iOS SDK.
 //   cd SelfTest && swift run pulse-selftest
 import PackageDescription
 

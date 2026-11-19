@@ -1,16 +1,16 @@
 import Foundation
 import WidgetKit
 
-/// Schreibt einen kleinen Recovery-Snapshot in den geteilten App-Group-Container,
-/// den das Widget liest. Bewusst nur Primitive (kein geteilter Typ nötig).
+/// Writes a small recovery snapshot into the shared App Group container,
+/// which the widget reads. Intentionally primitives only (no shared type needed).
 enum WidgetBridge {
-    /// App Group, auf die dieses Build tatsächlich Zugriff hat. Xcode-Builds nutzen
-    /// fest `group.net.dehlwes.pulse`. Sideloading-Tools signieren mit einer eigenen
-    /// Gruppe unter dem Team des Nutzers neu: SideStore/AltStore tragen sie als
-    /// `ALTAppGroups` in die Info.plist ein, iloader nimmt `group.<neue Bundle-ID>`.
-    /// Gewählt wird der erste Kandidat, für den iOS einen Container herausgibt (das
-    /// tut es nur mit passendem Entitlement). Gegenstück im Widget: `appGroup` in
-    /// PulseWidget.swift, beide synchron halten.
+    /// App Group this build actually has access to. Xcode builds always use
+    /// `group.net.dehlwes.pulse`. Sideloading tools re-sign with their own
+    /// group under the user's team: SideStore/AltStore add it as
+    /// `ALTAppGroups` to the Info.plist, iloader uses `group.<new bundle ID>`.
+    /// The first candidate for which iOS hands out a container is chosen (it
+    /// only does so with a matching entitlement). Counterpart in the widget: `appGroup` in
+    /// PulseWidget.swift, keep both in sync.
     static let appGroup: String = {
         let fallback = "group.net.dehlwes.pulse"
         var candidates = Bundle.main.object(forInfoDictionaryKey: "ALTAppGroups") as? [String] ?? []
@@ -40,7 +40,7 @@ enum WidgetBridge {
         strainTarget: Double?,
         language: PulseLanguage
     ) {
-        // Nil, wenn die App-Group (noch) nicht bereitsteht → stiller No-Op.
+        // Nil if the App Group is not available (yet) → silent no-op.
         guard let defaults = UserDefaults(suiteName: appGroup) else { return }
         if let recovery {
             defaults.set(recovery.score, forKey: Key.score)

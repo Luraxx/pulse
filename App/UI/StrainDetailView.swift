@@ -26,7 +26,7 @@ struct StrainDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    /// Belastungsziel des Tages aus der Recovery (Whoop-artiger Ziel-Strich).
+    /// Daily strain target from recovery (Whoop-like target tick).
     private var targetStrain: Double? {
         model.recovery(for: model.selectedDayKey).map {
             StrainEngine.targetStrain(forRecovery: $0.score)
@@ -77,7 +77,7 @@ struct StrainDetailView: View {
         }
     }
 
-    /// Einordnung relativ zum Tagesziel (falls vorhanden), sonst absolute Skala.
+    /// Rating relative to the daily target (if available), otherwise absolute scale.
     private func targetText(_ strain: StrainResult) -> String {
         guard let target = targetStrain else { return strainText(strain.strain) }
         let diff = strain.strain - target
@@ -116,7 +116,7 @@ struct StrainDetailView: View {
         }
     }
 
-    /// Minuten → "4 min" bzw. "3:50 h".
+    /// Minutes → "4 min" or "3:50 h".
     private func durationText(_ minutes: Double) -> String {
         let m = Int(minutes.rounded())
         if m < 60 { return "\(m) min" }

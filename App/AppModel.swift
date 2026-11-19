@@ -4,12 +4,12 @@ import AuthenticationServices
 import BackgroundTasks
 import UIKit
 
-/// Zentrales App-Modell: hält Store, Auth, Einstellungen und die berechneten
-/// Whoop-Metriken (Recovery, Strain, Schlaf) für alle Views bereit.
+/// Central app model: holds the store, auth, settings and the computed
+/// Whoop metrics (recovery, strain, sleep) for all views.
 @MainActor
 @Observable
 final class AppModel {
-    // MARK: - Einstellungen (in UserDefaults persistiert)
+    // MARK: - Settings (persisted in UserDefaults)
 
     private enum Keys {
         static let clientID = "google.clientID"
@@ -31,20 +31,20 @@ final class AppModel {
         static let language = "app.language"
     }
 
-    /// Identifier des Hintergrund-Sync-Tasks (muss in Info.plist unter
-    /// BGTaskSchedulerPermittedIdentifiers stehen).
+    /// Identifier of the background sync task (must be listed in Info.plist under
+    /// BGTaskSchedulerPermittedIdentifiers).
     static let refreshTaskID = "net.dehlwes.pulse.refresh"
 
-    /// App-Sprache; wirkt sofort auf alle Texte (kein Neustart nötig).
+    /// App language; applies immediately to all texts (no restart needed).
     var language: PulseLanguage {
         didSet {
             defaults.set(language.rawValue, forKey: Keys.language)
             Fmt.language = language
-            recomputeAll() // AgeEngine-Komponenten tragen lokalisierte Texte
+            recomputeAll() // AgeEngine components carry localized texts
         }
     }
 
-    /// Kurzform für zweisprachige Texte direkt am Verwendungsort.
+    /// Shorthand for bilingual texts right where they are used.
     func loc(_ de: String, _ en: String) -> String {
         language == .de ? de : en
     }
@@ -82,15 +82,15 @@ final class AppModel {
             recomputeAll()
         }
     }
-    /// Körpergröße in cm (Profil; fließt aktuell in keine Score-Berechnung ein).
+    /// Height in cm (profile; currently not used in any score calculation).
     var heightCm: Double {
         didSet { defaults.set(heightCm, forKey: Keys.heightCm) }
     }
-    /// Gewicht in kg (Profil; VO₂max ist bereits pro kg normalisiert).
+    /// Weight in kg (profile; VO₂max is already normalized per kg).
     var weightKg: Double {
         didSet { defaults.set(weightKg, forKey: Keys.weightKg) }
     }
-    /// 0 = automatisch (Tanaka-Formel)
+    /// 0 = automatic (Tanaka formula)
     var maxHROverride: Double {
         didSet {
             defaults.set(maxHROverride, forKey: Keys.maxHR)
@@ -106,11 +106,11 @@ final class AppModel {
             }
         }
     }
-    /// Opt-in für morgendliche Recovery-Benachrichtigung + Hintergrund-Sync.
+    /// Opt-in for the morning recovery notification + background sync.
     private(set) var notificationsEnabled: Bool {
         didSet { defaults.set(notificationsEnabled, forKey: Keys.notifications) }
     }
-    /// Zeitpunkt der letzten Verbindung (für die 7-Tage-Ablaufwarnung).
+    /// Time of the last connection (for the 7-day expiry warning).
     private(set) var connectedAt: Date? {
         didSet {
             if let connectedAt {
@@ -121,7 +121,7 @@ final class AppModel {
         }
     }
 
-    // MARK: - Laufzeit-Zustand
+    // MARK: - Runtime state
 
     private(set) var syncing = false
     private(set) var syncMessage = ""
@@ -130,16 +130,16 @@ final class AppModel {
     private(set) var syncLog: [SyncLogEntry] = []
     var selectedDayKey: String
     private(set) var profileName: String?
-    /// Tag, für den das Morgen-Journal-Popup gezeigt werden soll (i. d. R. gestern).
+    /// Day for which the morning journal popup should be shown (usually yesterday).
     var journalPromptDay: String?
 
-    // MARK: - Dashboard-Anpassung
+    // MARK: - Dashboard customization
 
-    /// Reihenfolge ALLER Module (auch ausgeblendeter).
+    /// Order of ALL modules (including hidden ones).
     private(set) var moduleOrder: [DashboardModule] = DashboardModule.allCases {
         didSet { defaults.set(moduleOrder.map(\.rawValue), forKey: Keys.moduleOrder) }
     }
-    /// Ausgeblendete Module.
+    /// Hidden modules.
     private(set) var hiddenModules: Set<DashboardModule> = [] {
         didSet { defaults.set(hiddenModules.map(\.rawValue), forKey: Keys.hiddenModules) }
     }
@@ -160,7 +160,7 @@ final class AppModel {
         }
     }
 
-    // MARK: - Daten & abgeleitete Metriken
+    // MARK: - Data & derived metrics
 
     let store: MetricsStore
     let journal: JournalStore
@@ -170,9 +170,9 @@ final class AppModel {
     private(set) var recoveryResults: [String: RecoveryResult] = [:]
     private(set) var ageResults: [String: AgeResult] = [:]
     private(set) var journalInsights: [FactorInsight] = []
-    /// Observabler Spiegel der Journal-Einträge. JournalStore ist eine normale
-    /// Klasse (nicht @Observable) — ohne diesen Spiegel würden Toggles in der
-    /// UI nicht sichtbar, weil SwiftUI keine Änderung mitbekommt.
+    /// Observable mirror of the journal entries. JournalStore is a plain
+    /// class (not @Observable) — without this mirror, toggles in the
+    /// UI would not show up because SwiftUI doesn't notice any change.
     private(set) var journalEntries: [String: JournalEntry] = [:]
 
     private let defaults = UserDefaults.standard
@@ -184,8 +184,8 @@ final class AppModel {
         store = MetricsStore(directory: directory)
         journal = JournalStore(directory: directory)
 
-        // Lokale Konstante, damit unten nicht self.language (Observable-Getter)
-        // gelesen wird, bevor alle Stored Properties initialisiert sind.
+        // Local constant so self.language (observable getter) is not
+        // read below before all stored properties are initialized.
         let initialLanguage = defaults.string(forKey: Keys.language).flatMap(PulseLanguage.init(rawValue:))
             ?? .systemDefault
         language = initialLanguage
@@ -207,7 +207,7 @@ final class AppModel {
         connectedAt = (defaults.object(forKey: Keys.connectedAt) as? Double).map(Date.init(timeIntervalSince1970:))
         selectedDayKey = DayKey.today()
 
-        // Modul-Reihenfolge laden; neue Module (künftiger Versionen) hinten anfügen.
+        // Load module order; append new modules (from future versions) at the end.
         var order = (defaults.stringArray(forKey: Keys.moduleOrder) ?? [])
             .compactMap(DashboardModule.init(rawValue:))
         for module in DashboardModule.allCases where !order.contains(module) {
@@ -222,7 +222,7 @@ final class AppModel {
         recomputeAll()
     }
 
-    // MARK: - Abgeleitete Konfiguration
+    // MARK: - Derived configuration
 
     var oauthConfig: GoogleOAuthConfig {
         GoogleOAuthConfig(clientID: clientID)
@@ -250,7 +250,7 @@ final class AppModel {
         store.sortedKeys
     }
 
-    // MARK: - Zugriff für Views
+    // MARK: - Access for views
 
     func record(for key: String) -> DayRecord? {
         store.days[key]
@@ -275,8 +275,8 @@ final class AppModel {
     // MARK: - Journal
 
     func journalEntry(for key: String) -> JournalEntry {
-        // Aus dem observablen Spiegel lesen, nicht aus dem Store — sonst
-        // bemerkt SwiftUI die Änderung nach einem Toggle nicht.
+        // Read from the observable mirror, not from the store — otherwise
+        // SwiftUI does not notice the change after a toggle.
         journalEntries[key] ?? JournalEntry(date: key)
     }
 
@@ -292,13 +292,13 @@ final class AppModel {
         journalInsights = JournalEngine.insights(entries: journal.entries, recoveryByDay: recoveryByDay)
     }
 
-    /// Anzahl Tage mit Recovery — Grundlage für die Monats-Auswertung (ab 28).
+    /// Number of days with recovery — basis for the monthly assessment (from 28).
     var recoveryDayCount: Int {
         recoveryResults.count
     }
 
-    /// Zeigt das Journal-Popup für gestern — höchstens 1× pro Tag, nur wenn
-    /// gestern Daten hat und noch nichts eingetragen wurde.
+    /// Shows the journal popup for yesterday — at most once per day, only if
+    /// yesterday has data and nothing has been entered yet.
     func maybeShowJournalPrompt() {
         guard hasData, journalPromptDay == nil else { return }
         let yesterday = DayKey.addDays(DayKey.today(), -1)
@@ -311,9 +311,9 @@ final class AppModel {
         journalPromptDay = yesterday
     }
 
-    /// Plant die Routine-Benachrichtigungen neu (nach jedem Sync):
-    /// Morgen-Wecker für morgen 7:30 (ersetzt den heutigen) und die
-    /// Zubettgeh-Erinnerung für heute Abend.
+    /// Reschedules the routine notifications (after every sync):
+    /// morning alarm for tomorrow 7:30 (replaces today's) and the
+    /// bedtime reminder for tonight.
     func rescheduleRoutineNotifications() {
         guard notificationsEnabled else { return }
         PulseNotifications.scheduleMorningReminder(language: language)
@@ -324,16 +324,16 @@ final class AppModel {
         }
     }
 
-    // MARK: - Health-Warnung & Zubettgeh-Empfehlung
+    // MARK: - Health warning & bedtime recommendation
 
-    /// Proaktive Gesundheitswarnung für den ausgewählten Tag (nil = alles im Rahmen).
+    /// Proactive health warning for the selected day (nil = all within range).
     var healthAlert: HealthAlert? {
         let records = store.chronological(upTo: selectedDayKey, count: 10)
         return HealthMonitor.alert(records: records, language: language)
     }
 
-    /// Empfehlung für die kommende Nacht (aus Schlafschuld, heutigem Strain,
-    /// gewohnter Aufwachzeit). nil ohne genug Historie.
+    /// Recommendation for the coming night (from sleep debt, today's strain,
+    /// usual wake time). nil without enough history.
     var bedtimeTonight: BedtimeRecommendation? {
         guard hasData else { return nil }
         let today = DayKey.today()
@@ -356,14 +356,14 @@ final class AppModel {
         record(for: selectedDayKey)
     }
 
-    /// Health-Monitor-Status für den ausgewählten Tag.
+    /// Health Monitor status for the selected day.
     var healthStatuses: [HealthMetricStatus] {
         guard let record = selectedRecord else { return [] }
         let history = store.history(before: selectedDayKey, days: 45)
         return HealthMonitor.evaluate(today: record, history: history)
     }
 
-    /// Werte einer Metrik der letzten `count` Tage bis zum ausgewählten Tag.
+    /// Values of a metric for the last `count` days up to the selected day.
     func trend(_ count: Int, endingAt key: String? = nil, _ value: (DayRecord) -> Double?) -> [(key: String, value: Double)] {
         let end = key ?? selectedDayKey
         let start = DayKey.addDays(end, -(count - 1))
@@ -373,7 +373,7 @@ final class AppModel {
         }
     }
 
-    // MARK: - Neuberechnung
+    // MARK: - Recalculation
 
     func recomputeAll() {
         var strains: [String: StrainResult] = [:]
@@ -387,7 +387,7 @@ final class AppModel {
 
         sleepAnalyses = SleepEngine.analyze(days: store.days, config: sleepConfig, strainByDay: strainScalar)
 
-        // Workout-Strains in die Records schreiben
+        // Write workout strains into the records
         for (_, record) in store.days where !record.workouts.isEmpty {
             var updated = record
             for index in updated.workouts.indices {
@@ -401,7 +401,7 @@ final class AppModel {
             store.upsert(updated)
         }
 
-        // Recovery chronologisch mit wachsender Historie
+        // Recovery chronologically with growing history
         var recoveries: [String: RecoveryResult] = [:]
         var history: [DayRecord] = []
         let keys = store.sortedKeys
@@ -419,7 +419,7 @@ final class AppModel {
         recoveryResults = recoveries
         recomputeJournalInsights()
 
-        // Biologisches „Pulse Alter" je Tag aus dem 30-Tage-Fenster.
+        // Biological "Pulse Age" per day from the 30-day window.
         var ages: [String: AgeResult] = [:]
         for key in keys {
             let window = store.chronological(upTo: key, count: AgeEngine.calibrationNeed)
@@ -448,7 +448,7 @@ final class AppModel {
             selectedDayKey = last
         }
 
-        // Tages-Snapshot für die Widgets aktualisieren.
+        // Update the daily snapshot for the widgets.
         let today = DayKey.today()
         let todayRecovery = recoveryResults[today]
         let todaySleep = sleepAnalyses[today]
@@ -461,15 +461,15 @@ final class AppModel {
         )
     }
 
-    /// Robuster beobachteter Maxpuls (97,5. Perzentil) über die Intraday-HF des
-    /// Fensters; nil bei zu wenig Samples (verhindert Artefakt-Ausreißer).
+    /// Robust observed max HR (97.5th percentile) over the window's intraday HR;
+    /// nil with too few samples (prevents artifact outliers).
     private static func robustMaxHR(_ window: [DayRecord]) -> Double? {
         let bpms = window.flatMap { $0.hrSamples.map(\.bpm) }
         guard bpms.count >= 300 else { return nil }
         return Stats.percentile(bpms, 0.975)
     }
 
-    // MARK: - Aktionen
+    // MARK: - Actions
 
     func startDemo() {
         store.replaceAll(DemoData.generate(daysBack: 120, seed: 42))
@@ -491,13 +491,13 @@ final class AppModel {
         let pkce = PKCE()
         let state = UUID().uuidString
         guard let url = auth.authorizationURL(config: config, pkce: pkce, state: state) else {
-            lastError = "Autorisierungs-URL konnte nicht erstellt werden."
+            lastError = "Could not create the authorization URL."
             return
         }
         do {
             let callback = try await WebAuthenticator.shared.authenticate(url: url, callbackScheme: scheme)
             guard let code = GoogleAuth.extractCode(from: callback, expectedState: state) else {
-                lastError = "Kein gültiger Autorisierungscode erhalten."
+                lastError = "No valid authorization code received."
                 return
             }
             _ = try await auth.exchange(code: code, pkce: pkce, config: config)
@@ -535,9 +535,9 @@ final class AppModel {
         syncMessage = "Starte…"
         syncFraction = 0
 
-        // Sync gegen Display-Sperre absichern und beim App-Wechsel noch
-        // ~30 s im Hintergrund weiterlaufen lassen (Teilergebnisse werden
-        // ohnehin nach jeder Phase gespeichert).
+        // Protect the sync against the screen lock and keep it running ~30 s
+        // in the background when switching apps (partial results are
+        // saved after each phase anyway).
         UIApplication.shared.isIdleTimerDisabled = true
         var bgTask: UIBackgroundTaskIdentifier = .invalid
         bgTask = UIApplication.shared.beginBackgroundTask(withName: "pulse.sync") {
@@ -555,7 +555,7 @@ final class AppModel {
         let client = HealthAPIClient(auth: auth, config: oauthConfig)
         let engine = SyncEngine(client: client)
 
-        // Phase 1: alle Tagesmetriken — danach sofort speichern und anzeigen.
+        // Phase 1: all daily metrics — then save and display immediately.
         let daily = await engine.syncDailyMetrics(
             existingDays: store.days,
             daysBack: daysBackOverride ?? daysBack
@@ -570,12 +570,12 @@ final class AppModel {
         syncLog = daily.log
         profileName = daily.profile?.displayName ?? profileName
         if sex == .unspecified, let profileSex = daily.profile?.sex, profileSex != .unspecified {
-            sex = profileSex // löst recomputeAll() aus
+            sex = profileSex // triggers recomputeAll()
         } else {
             recomputeAll()
         }
 
-        // Phase 2: Intraday-Herzfrequenz — nur fehlende Tage, parallel.
+        // Phase 2: intraday heart rate — only missing days, in parallel.
         let hr = await engine.syncIntradayHeartRate(
             existingDays: store.days,
             hrDaysBack: hrDaysBackOverride ?? hrDaysBack
@@ -592,7 +592,7 @@ final class AppModel {
         recomputeAll()
 
         if daily.hadErrors || hr.hadErrors {
-            lastError = "Sync mit Warnungen abgeschlossen – Details im Sync-Protokoll."
+            lastError = "Sync finished with warnings – see the sync log for details."
         }
 
         rescheduleRoutineNotifications()
@@ -620,7 +620,7 @@ final class AppModel {
         recomputeAll()
     }
 
-    // MARK: - Benachrichtigungen & Hintergrund-Sync
+    // MARK: - Notifications & background sync
 
     func setNotifications(enabled: Bool) async {
         if enabled {
@@ -637,8 +637,8 @@ final class AppModel {
         }
     }
 
-    /// Plant den nächsten Hintergrund-Sync. iOS entscheidet über den realen
-    /// Zeitpunkt – „ab früh morgens" ist nur ein Wunsch, keine Garantie.
+    /// Schedules the next background sync. iOS decides the actual
+    /// time – "from early morning" is only a wish, not a guarantee.
     func scheduleBackgroundRefresh() {
         guard notificationsEnabled, isConnected else { return }
         let request = BGAppRefreshTaskRequest(identifier: Self.refreshTaskID)
@@ -646,9 +646,9 @@ final class AppModel {
         try? BGTaskScheduler.shared.submit(request)
     }
 
-    /// Aufgerufen vom `.backgroundTask`-Handler: leichter Sync + Morgen-Notification.
+    /// Called by the `.backgroundTask` handler: light sync + morning notification.
     func performBackgroundRefresh() async {
-        scheduleBackgroundRefresh() // sofort den nächsten Lauf einplanen
+        scheduleBackgroundRefresh() // schedule the next run immediately
         guard isConnected else { return }
         await syncNow(daysBackOverride: 3, hrDaysBackOverride: 1)
         guard notificationsEnabled, await PulseNotifications.isAuthorized() else { return }

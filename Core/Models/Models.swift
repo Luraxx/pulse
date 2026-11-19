@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - Schlaf
+// MARK: - Sleep
 
 public enum SleepStage: String, Codable, CaseIterable, Sendable {
     case awake
@@ -9,7 +9,7 @@ public enum SleepStage: String, Codable, CaseIterable, Sendable {
     case rem
     case unknown
 
-    /// Mappt Google-Health-API-Enums (uppercase) und Fitbit-Legacy-Werte.
+    /// Maps Google Health API enums (uppercase) and Fitbit legacy values.
     public init(apiValue: String) {
         switch apiValue.uppercased() {
         case "AWAKE", "WAKE", "RESTLESS": self = .awake
@@ -72,7 +72,7 @@ public struct SleepSession: Codable, Hashable, Sendable {
         max(0, end.timeIntervalSince(start) / 60)
     }
 
-    /// Schlafeffizienz in Prozent (Schlafzeit / Zeit im Bett).
+    /// Sleep efficiency in percent (time asleep / time in bed).
     public var efficiency: Double? {
         guard minutesInBed > 0 else { return nil }
         return min(100, minutesAsleep / minutesInBed * 100)
@@ -91,10 +91,10 @@ public struct SleepSession: Codable, Hashable, Sendable {
     }
 }
 
-// MARK: - Herzfrequenz
+// MARK: - Heart rate
 
 public struct HRSample: Codable, Hashable, Sendable {
-    /// Zeitstempel (Minutenauflösung nach Downsampling)
+    /// Timestamp (minute resolution after downsampling)
     public var t: Date
     public var bpm: Double
 
@@ -113,7 +113,7 @@ public struct Workout: Codable, Hashable, Sendable {
     public var end: Date
     public var averageHR: Double?
     public var calories: Double?
-    /// Berechneter Strain-Wert (0–21), wird von der StrainEngine gesetzt.
+    /// Computed strain value (0–21), set by the StrainEngine.
     public var strain: Double?
 
     public init(
@@ -139,16 +139,16 @@ public struct Workout: Codable, Hashable, Sendable {
     }
 }
 
-// MARK: - Profil
+// MARK: - Profile
 
-/// Biologisches Geschlecht — nötig, weil die Alters-Normwerte (VO₂max, HRV,
-/// Ruhepuls) geschlechtsspezifisch sind. "unspecified" nutzt gemittelte Kurven.
+/// Biological sex — needed because the age reference values (VO₂max, HRV,
+/// resting HR) are sex-specific. "unspecified" uses averaged curves.
 public enum BiologicalSex: String, Codable, CaseIterable, Sendable {
     case male
     case female
     case unspecified
 
-    /// Mappt Google-/Fitbit-Enums ("MALE"/"FEMALE", "male"…).
+    /// Maps Google/Fitbit enums ("MALE"/"FEMALE", "male"…).
     public init(apiValue: String?) {
         switch apiValue?.uppercased() {
         case "MALE", "M": self = .male
@@ -168,7 +168,7 @@ public enum BiologicalSex: String, Codable, CaseIterable, Sendable {
 
 public struct UserProfile: Codable, Sendable {
     public var displayName: String?
-    /// Geburtstag als "yyyy-MM-dd", falls die API ihn liefert.
+    /// Birthday as "yyyy-MM-dd", if the API provides it.
     public var birthday: String?
     public var sex: BiologicalSex
 
@@ -185,34 +185,34 @@ public struct UserProfile: Codable, Sendable {
     }
 }
 
-// MARK: - Tagesdatensatz
+// MARK: - Daily record
 
-/// Alle Metriken eines Kalendertags. Nächtliche Werte (HRV, Atemfrequenz, SpO2,
-/// Temperatur) sind dem Tag des Aufwachens zugeordnet.
+/// All metrics of a calendar day. Overnight values (HRV, respiratory rate, SpO2,
+/// temperature) are assigned to the day of waking up.
 public struct DayRecord: Codable, Sendable {
     public var date: String // "yyyy-MM-dd"
 
-    // Nächtliche Recovery-Metriken
-    public var hrvRmssd: Double?          // ms, nächtlicher Mittelwert
-    public var restingHR: Double?         // Schläge/min
-    public var respiratoryRate: Double?   // Atemzüge/min
+    // Overnight recovery metrics
+    public var hrvRmssd: Double?          // ms, overnight average
+    public var restingHR: Double?         // beats/min
+    public var respiratoryRate: Double?   // breaths/min
     public var spo2Avg: Double?           // %
     public var spo2Min: Double?           // %
-    public var bodyTemp: Double?          // °C (Haut-/Körpertemperatur der Nacht)
-    /// Cardio-Fitness / VO₂max (ml/kg/min) — von Google Health gemessener
-    /// Tageswert (daily-vo2-max), falls verfügbar.
+    public var bodyTemp: Double?          // °C (overnight skin/body temperature)
+    /// Cardio fitness / VO₂max (ml/kg/min) — measured by Google Health
+    /// daily value (daily-vo2-max), if available.
     public var vo2max: Double?
 
-    // Aktivität
+    // Activity
     public var steps: Int?
     public var sleepSessions: [SleepSession]
     public var workouts: [Workout]
-    /// Intraday-Herzfrequenz, auf 1-Minuten-Auflösung reduziert.
+    /// Intraday heart rate, reduced to 1-minute resolution.
     public var hrSamples: [HRSample]
 
     public var syncedAt: Date?
-    /// Zeitpunkt des letzten Intraday-HF-Loads. Liegt er NACH dem Tagesende,
-    /// ist der Tag vollständig und wird beim nächsten Sync übersprungen.
+    /// Time of the last intraday HR load. If it is AFTER the end of the day,
+    /// the day is complete and is skipped on the next sync.
     public var hrSyncedAt: Date?
 
     public init(date: String) {
@@ -222,7 +222,7 @@ public struct DayRecord: Codable, Sendable {
         self.hrSamples = []
     }
 
-    /// Hauptschlaf = als solcher markierte Session, sonst die längste.
+    /// Main sleep = session marked as such, otherwise the longest.
     public var mainSleep: SleepSession? {
         if let flagged = sleepSessions.first(where: { $0.isMainSleep }) {
             return flagged

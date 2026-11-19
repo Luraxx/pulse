@@ -43,7 +43,7 @@ public enum HealthMetricKind: String, CaseIterable, Sendable {
         }
     }
 
-    /// Minimale halbe Bandbreite, damit enge Baselines nicht überempfindlich werden.
+    /// Minimum half bandwidth so narrow baselines don't become oversensitive.
     var minimumHalfWidth: Double {
         switch self {
         case .restingHR: return 3
@@ -64,8 +64,8 @@ public struct HealthMetricStatus: Sendable {
     public let state: BandState
 }
 
-/// Whoop-artiger Health Monitor: Jede Nacht-Metrik wird gegen das persönliche
-/// Baseline-Band (Mittelwert ± 1,65 SD) geprüft.
+/// Whoop-like Health Monitor: each overnight metric is checked against the personal
+/// baseline band (mean ± 1.65 SD).
 public enum HealthMonitor {
     public static func evaluate(today: DayRecord, history: [DayRecord]) -> [HealthMetricStatus] {
         HealthMetricKind.allCases.map { kind in
@@ -84,7 +84,7 @@ public enum HealthMonitor {
             var lower: Double? = baseline.mean - halfWidth
             var upper: Double? = baseline.mean + halfWidth
 
-            // SpO₂: nur nach unten kritisch, harte Untergrenze 90 %.
+            // SpO₂: only critical downward, hard lower limit 90 %.
             if kind == .spo2 {
                 lower = max(90, baseline.mean - halfWidth)
                 upper = nil
@@ -120,10 +120,10 @@ public enum HealthMonitor {
         }
     }
 
-    // MARK: - Warnung
+    // MARK: - Warning
 
-    /// Ist die Abweichung in die "schlechte" Richtung (Anzeichen für Infekt/
-    /// Übertraining)? HRV & SpO₂ sind unten kritisch, der Rest oben.
+    /// Is the deviation in the "bad" direction (sign of infection/
+    /// overtraining)? HRV & SpO₂ are critical downward, the rest upward.
     public static func isConcerning(_ status: HealthMetricStatus) -> Bool {
         switch status.kind {
         case .hrv, .spo2: return status.state == .below
@@ -142,20 +142,20 @@ public enum HealthMonitor {
 public struct HealthAlert: Sendable {
     public let kinds: [HealthMetricKind]
     public let message: String
-    /// true = deutliche Warnung, false = milder Hinweis.
+    /// true = clear warning, false = mild notice.
     public let isWarning: Bool
 }
 
 extension HealthMonitor {
-    /// Proaktive Warnung aus den letzten Tagen. Löst aus, wenn heute **mehrere**
-    /// Metriken auffällig sind ODER **eine** Metrik seit ≥2 Tagen — beides
-    /// klassische Frühzeichen für Infekt oder Übertraining.
+    /// Proactive warning from the last few days. Triggers when **several**
+    /// metrics are off today OR **one** metric for ≥2 days — both
+    /// classic early signs of infection or overtraining.
     public static func alert(records: [DayRecord], lookback: Int = 3) -> HealthAlert? {
-        // Genug Historie für belastbare Baselines nötig.
+        // Enough history for solid baselines is required.
         guard records.count >= 6 else { return nil }
         let n = records.count
 
-        // Auffällige Metriken je Tag (letzte lookback+1 Tage).
+        // Off metrics per day (last lookback+1 days).
         var dailyConcerning: [Set<HealthMetricKind>] = []
         let start = max(1, n - (lookback + 1))
         for i in start..<n {
@@ -164,7 +164,7 @@ extension HealthMonitor {
         }
         guard let today = dailyConcerning.last, !today.isEmpty else { return nil }
 
-        // Regel 1: mehrere Metriken heute außerhalb der Baseline.
+        // Rule 1: several metrics outside the baseline today.
         if today.count >= 2 {
             let names = today.map(\.label).sorted().joined(separator: ", ")
             return HealthAlert(
@@ -174,7 +174,7 @@ extension HealthMonitor {
             )
         }
 
-        // Regel 2: eine Metrik seit ≥2 Tagen ununterbrochen auffällig.
+        // Rule 2: one metric continuously off for ≥2 days.
         var streaked: [(kind: HealthMetricKind, days: Int)] = []
         for kind in today {
             var streak = 0

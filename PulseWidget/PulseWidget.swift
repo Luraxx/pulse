@@ -1,13 +1,13 @@
 import WidgetKit
 import SwiftUI
 
-// Eigenständiges Widget-Target. Liest den Tages-Snapshot aus dem geteilten
-// App-Group-Container (die App schreibt ihn via WidgetBridge). Bewusst ohne
-// Core-Abhängigkeit — nur Primitive.
+// Standalone widget target. Reads the daily snapshot from the shared
+// App Group container (the app writes it via WidgetBridge). Intentionally without
+// a Core dependency — primitives only.
 
-/// App Group dieses Builds, gleiche Auswahl wie `WidgetBridge.appGroup` in der App
-/// (synchron halten). Sideloading-Tools machen `ALTAppGroups` und die neue Bundle-ID
-/// an der App fest, daher wird zusätzlich die umschließende App gelesen
+/// App Group of this build, same selection as `WidgetBridge.appGroup` in the app
+/// (keep in sync). Sideloading tools pin `ALTAppGroups` and the new bundle ID
+/// on the app, so the enclosing app is read as well
 /// (Pulse.app/PlugIns/PulseWidget.appex).
 private let appGroup: String = {
     let fallback = "group.net.dehlwes.pulse"
@@ -25,12 +25,12 @@ private let appGroup: String = {
     } ?? fallback
 }()
 
-/// Sprache aus dem App-Snapshot ("de"/"en", Default de).
+/// Language from the app snapshot ("de"/"en", default de).
 private var widgetIsGerman: Bool {
     (UserDefaults(suiteName: appGroup)?.string(forKey: "app.language") ?? "de") == "de"
 }
 
-// MARK: - Daten
+// MARK: - Data
 
 struct PulseEntry: TimelineEntry {
     let date: Date
@@ -51,7 +51,7 @@ struct PulseProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<PulseEntry>) -> Void) {
-        // Werte ändern sich real nur nach einem Sync — 2-h-Refresh reicht.
+        // Values only really change after a sync — a 2-h refresh is enough.
         let next = Calendar.current.date(byAdding: .hour, value: 2, to: Date()) ?? Date().addingTimeInterval(7200)
         completion(Timeline(entries: [readEntry()], policy: .after(next)))
     }
@@ -69,7 +69,7 @@ struct PulseProvider: TimelineProvider {
     }
 }
 
-// MARK: - Farben & Bausteine
+// MARK: - Colors & building blocks
 
 private func zoneColor(_ zone: String) -> Color {
     switch zone {
@@ -105,7 +105,7 @@ private struct WidgetRing: View {
     }
 }
 
-// MARK: - Kleines Widget: Recovery-Ring
+// MARK: - Small widget: recovery ring
 
 struct RecoveryWidgetView: View {
     var entry: PulseEntry
@@ -154,7 +154,7 @@ struct PulseRecoveryWidget: Widget {
     }
 }
 
-// MARK: - Mittleres Widget: Tages-Übersicht (3 Ringe)
+// MARK: - Medium widget: daily overview (3 rings)
 
 struct OverviewWidgetView: View {
     var entry: PulseEntry

@@ -32,10 +32,10 @@ enum Theme {
 
     static func stageColor(_ stage: SleepStage) -> Color {
         switch stage {
-        case .awake: return Color(hex: 0xF2617A) // Koralle/Rot – wie „Wach"
-        case .rem: return Color(hex: 0x35D0BA)   // Cyan/Teal – wie „REM"
-        case .light: return Color(hex: 0x5B8CFF) // klares Blau – wie „Leicht"
-        case .deep: return Color(hex: 0x6B4BE0)  // sattes Lila – wie „Tief"
+        case .awake: return Color(hex: 0xF2617A) // coral/red – like "Awake"
+        case .rem: return Color(hex: 0x35D0BA)   // cyan/teal – like "REM"
+        case .light: return Color(hex: 0x5B8CFF) // clear blue – like "Light"
+        case .deep: return Color(hex: 0x6B4BE0)  // rich purple – like "Deep"
         case .unknown: return textSecondary
         }
     }
@@ -83,10 +83,10 @@ extension Color {
     }
 }
 
-/// Formatierungs-Helfer. `language` wird vom AppModel gesetzt und schaltet
-/// Locale und feste Texte (Heute/Gestern) um.
+/// Formatting helpers. `language` is set by the AppModel and switches
+/// the locale and fixed texts (Today/Yesterday).
 enum Fmt {
-    /// Aktive Sprache — wird beim Start und bei jedem Wechsel gesetzt.
+    /// Active language — set at launch and on every change.
     static var language: PulseLanguage = .de {
         didSet { rebuildFormatters() }
     }
@@ -112,7 +112,7 @@ enum Fmt {
         weekdayLetterFormatter = makeFormatter("EEEEE")
     }
 
-    /// Minuten → "7:36"
+    /// Minutes → "7:36"
     static func hm(_ minutes: Double) -> String {
         let total = Int(minutes.rounded())
         return String(format: "%d:%02d", total / 60, total % 60)
@@ -122,7 +122,7 @@ enum Fmt {
         clockFormatter.string(from: date)
     }
 
-    /// Minuten seit Mitternacht → "22:55".
+    /// Minutes since midnight → "22:55".
     static func clockFromMinutes(_ minutes: Double) -> String {
         let m = (Int(minutes.rounded()) % 1440 + 1440) % 1440
         return String(format: "%02d:%02d", m / 60, m % 60)

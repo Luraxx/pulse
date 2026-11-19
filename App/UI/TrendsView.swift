@@ -99,10 +99,10 @@ struct TrendsView: View {
         }
     }
 
-    // MARK: - Datenreihen
+    // MARK: - Data series
 
-    /// Ab 90 Tagen werden alle Charts auf Wochenmittel aggregiert —
-    /// 90 Tagesbalken auf Handybreite sind nicht lesbar.
+    /// From 90 days all charts are aggregated to weekly means —
+    /// 90 daily bars on a phone width are unreadable.
     private var isWeekly: Bool { range >= 90 }
 
     private func adaptive(_ raw: [(key: String, value: Double)]) -> [TrendPoint] {
@@ -148,7 +148,7 @@ struct TrendsView: View {
         adaptive(model.trend(range, endingAt: today) { $0.restingHR })
     }
 
-    /// Kleine Fußnote unter Wochen-Charts.
+    /// Small footnote under weekly charts.
     @ViewBuilder
     private var weeklyNote: some View {
         if isWeekly {
@@ -158,7 +158,7 @@ struct TrendsView: View {
         }
     }
 
-    // MARK: - Karten
+    // MARK: - Cards
 
     private var summaryCard: some View {
         SectionCard(model.loc("Durchschnitt (\(range) Tage)", "Average (\(range) days)")) {
@@ -196,7 +196,7 @@ struct TrendsView: View {
         SectionCard("Recovery vs. Strain") {
             if recoveryPoints.count >= 2 {
                 if range == 30 {
-                    // Tageswerte gedimmt, Trend über 7-Tage-Durchschnittslinien.
+                    // Daily values dimmed, trend via 7-day average lines.
                     RecoveryStrainChart(
                         recovery: recoveryPoints,
                         strain: trendPoints(TrendMath.movingAverage(rawStrain, window: 7)),
@@ -235,8 +235,8 @@ struct TrendsView: View {
         }
     }
 
-    /// Letzter Tages-Key mit Recovery — bei Wochenmitteln zeigt der letzte
-    /// Chart-Punkt auf einen Montag, der selbst keine Recovery haben muss.
+    /// Last day key with recovery — with weekly means the last
+    /// chart point lands on a Monday, which need not have recovery itself.
     private var latestRecoveryKey: String {
         rawRecovery.last?.key ?? today
     }

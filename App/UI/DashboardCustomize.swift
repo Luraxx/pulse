@@ -1,9 +1,9 @@
 import SwiftUI
 
-// MARK: - Dashboard-Module
+// MARK: - Dashboard modules
 
-/// Die anpassbaren Karten der Heute-Seite. Reihenfolge und Sichtbarkeit
-/// werden in den Einstellungen persistiert.
+/// The customizable cards of the Today page. Order and visibility
+/// are persisted in the settings.
 enum DashboardModule: String, CaseIterable, Codable, Identifiable {
     case overview
     case recovery
@@ -53,9 +53,9 @@ enum DashboardModule: String, CaseIterable, Codable, Identifiable {
     }
 }
 
-// MARK: - Anpassen-Sheet
+// MARK: - Customize sheet
 
-/// Reihenfolge per Drag ändern, Sichtbarkeit per Toggle.
+/// Change order by drag, visibility by toggle.
 struct DashboardCustomizeSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -102,7 +102,7 @@ struct DashboardCustomizeSheet: View {
     }
 }
 
-// MARK: - Sport-Karte (heutige Workouts)
+// MARK: - Workouts card (today's workouts)
 
 struct WorkoutsCard: View {
     @Environment(AppModel.self) private var model
@@ -152,7 +152,7 @@ struct WorkoutsCard: View {
     }
 }
 
-// MARK: - Schritte-Karte
+// MARK: - Steps card
 
 struct StepsCard: View {
     @Environment(AppModel.self) private var model

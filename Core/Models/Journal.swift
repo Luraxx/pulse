@@ -1,9 +1,9 @@
 import Foundation
 
-// MARK: - Journal-Faktoren
+// MARK: - Journal factors
 
-/// Verhaltens-Faktoren, die abends abgehakt werden. Bewusst eine feste, kleine
-/// Liste (kein Freitext-Wildwuchs), damit Korrelationen belastbar bleiben.
+/// Behavior factors checked off in the evening. Intentionally a fixed, small
+/// list (no free-text sprawl) so correlations stay solid.
 public enum JournalFactor: String, Codable, CaseIterable, Sendable, Identifiable {
     case alcohol
     case lateCaffeine
@@ -43,7 +43,7 @@ public enum JournalFactor: String, Codable, CaseIterable, Sendable, Identifiable
     }
 }
 
-/// Journal-Eintrag eines Tages: welche Faktoren an diesem Tag zutrafen.
+/// Journal entry for a day: which factors applied on that day.
 public struct JournalEntry: Codable, Sendable {
     public var date: String // "yyyy-MM-dd"
     public var factors: Set<JournalFactor>
@@ -54,11 +54,11 @@ public struct JournalEntry: Codable, Sendable {
     }
 }
 
-// MARK: - Journal-Speicher
+// MARK: - Journal storage
 
-/// Persistiert Journal-Einträge in einer **eigenen** JSON-Datei — getrennt vom
-/// MetricsStore, damit ein Sync (der `days.json` ersetzt) das Journal nie
-/// überschreibt.
+/// Persists journal entries in a **separate** JSON file — kept apart from the
+/// MetricsStore so a sync (which replaces `days.json`) never overwrites
+/// the journal.
 public final class JournalStore {
     public private(set) var entries: [String: JournalEntry] = [:]
     public let fileURL: URL
@@ -107,25 +107,25 @@ public final class JournalStore {
     }
 }
 
-// MARK: - Korrelations-Engine
+// MARK: - Correlation engine
 
-/// Wie belastbar ein Insight ist.
+/// How solid an insight is.
 public enum InsightConfidence: String, Sendable {
-    /// Differenz übersteigt das Doppelte ihres Standardfehlers (~95 %-Niveau).
+    /// Difference exceeds twice its standard error (~95 % level).
     case solid
-    /// Mindestfallzahl erreicht, aber Differenz noch im Rauschbereich.
+    /// Minimum sample size reached, but difference still within noise.
     case emerging
 }
 
 public struct FactorInsight: Sendable, Identifiable {
     public let factor: JournalFactor
-    /// Ø Recovery des Folgetags an Tagen MIT dem Faktor.
+    /// Avg next-day recovery on days WITH the factor.
     public let avgWith: Double
-    /// Ø Recovery des Folgetags an Tagen OHNE den Faktor.
+    /// Avg next-day recovery on days WITHOUT the factor.
     public let avgWithout: Double
-    /// Differenz in Recovery-Punkten (negativ = Faktor senkt Recovery).
+    /// Difference in recovery points (negative = factor lowers recovery).
     public let delta: Double
-    /// Standardfehler der Differenz (Welch) — Maß für das Rauschen.
+    /// Standard error of the difference (Welch) — a measure of noise.
     public let standardError: Double
     public let confidence: InsightConfidence
     public let daysWith: Int
@@ -134,19 +134,19 @@ public struct FactorInsight: Sendable, Identifiable {
     public var id: String { factor.rawValue }
 }
 
-/// Korreliert Journal-Faktoren mit der Recovery des **Folgetags** (die Nacht
-/// nach dem Faktor). Methodik angelehnt an Whoops Monthly Performance
-/// Assessment: mind. 5 Ja- und 5 Nein-Tage je Verhalten, erste
-/// Monats-Auswertung ab 28 Recovery-Tagen; Vergleich der Gruppen-Mittel,
-/// Belastbarkeit über den Standardfehler der Differenz (Welch).
-/// Korrelation, kein Kausalbeweis — das bleibt in der UI ausgewiesen.
+/// Correlates journal factors with the recovery of the **next day** (the night
+/// after the factor). Method modeled on Whoop's Monthly Performance
+/// Assessment: at least 5 yes and 5 no days per behavior, first
+/// monthly assessment from 28 recovery days; compares group means,
+/// solidity via the standard error of the difference (Welch).
+/// Correlation, not proof of causation — the UI states this.
 public enum JournalEngine {
-    /// Whoop-Regel: mind. 5 Tage mit und 5 ohne das Verhalten.
+    /// Whoop rule: at least 5 days with and 5 without the behavior.
     public static let minDaysPerGroup = 5
-    /// Whoop-Regel: erste Monats-Auswertung ab 28 Tagen mit Recovery-Daten.
+    /// Whoop rule: first monthly assessment from 28 days with recovery data.
     public static let assessmentMinRecoveryDays = 28
 
-    /// Genug Gesamtdaten für eine Monats-Auswertung?
+    /// Enough overall data for a monthly assessment?
     public static func assessmentReady(recoveryByDay: [String: Int]) -> Bool {
         recoveryByDay.count >= assessmentMinRecoveryDays
     }
@@ -162,7 +162,7 @@ public enum JournalEngine {
             var withoutValues: [Double] = []
 
             for (dayKey, entry) in entries {
-                // Recovery des Folgetags (Wirkung zeigt sich in der Nacht danach).
+                // Next-day recovery (the effect shows in the night after).
                 let nextKey = DayKey.addDays(dayKey, 1)
                 guard let recovery = recoveryByDay[nextKey] else { continue }
                 if entry.factors.contains(factor) {
@@ -179,7 +179,7 @@ public enum JournalEngine {
             let avgWithout = Stats.mean(withoutValues)
             let delta = avgWith - avgWithout
 
-            // Welch-Standardfehler der Mittelwert-Differenz.
+            // Welch standard error of the difference of means.
             let varWith = pow(Stats.standardDeviation(withValues), 2)
             let varWithout = pow(Stats.standardDeviation(withoutValues), 2)
             let se = sqrt(varWith / Double(withValues.count) + varWithout / Double(withoutValues.count))
@@ -196,7 +196,7 @@ public enum JournalEngine {
             ))
         }
 
-        // Stärkster (betragsmäßiger) Effekt zuerst.
+        // Strongest (absolute) effect first.
         return result.sorted { abs($0.delta) > abs($1.delta) }
     }
 }

@@ -1,9 +1,9 @@
 import Foundation
 import UserNotifications
 
-/// Lokale Benachrichtigungen (rein auf dem Gerät, kein Server):
-/// – morgendliche Recovery-Zusammenfassung nach dem Hintergrund-Sync
-/// – Warnung, bevor die Google-Verbindung im Testing-Modus (7 Tage) abläuft.
+/// Local notifications (purely on device, no server):
+/// – morning recovery summary after the background sync
+/// – warning before the Google connection expires in testing mode (7 days).
 enum PulseNotifications {
     static let tokenExpiryID = "pulse.tokenExpiry"
     static let morningReminderID = "pulse.morningReminder"
@@ -21,8 +21,8 @@ enum PulseNotifications {
         return status == .authorized || status == .provisional
     }
 
-    /// Morgendliche Zusammenfassung nach dem Hintergrund-Sync — nur echte,
-    /// frisch berechnete Werte, nie geraten.
+    /// Morning summary after the background sync — only real,
+    /// freshly computed values, never guessed.
     static func postRecoverySummary(recovery: Int, sleep: String?, journalPending: Bool, alertMessage: String?, language: PulseLanguage) {
         let de = (language == .de)
         let emoji = recovery >= 67 ? "🟢" : (recovery >= 34 ? "🟡" : "🔴")
@@ -34,14 +34,14 @@ enum PulseNotifications {
         if journalPending { lines.append(de ? "Journal für gestern noch offen – 10 Sekunden." : "Yesterday\u{2019}s journal is still open – 10 seconds.") }
         content.body = lines.isEmpty ? (de ? "Tippe für deine Tagesübersicht." : "Tap for your daily overview.") : lines.joined(separator: "\n")
         content.sound = .default
-        // trigger nil = sofort ausliefern.
+        // trigger nil = deliver immediately.
         let request = UNNotificationRequest(identifier: "pulse.recovery", content: content, trigger: nil)
         center.add(request)
     }
 
-    /// Fallback-Wecker: feuert MORGEN 7:30, falls bis dahin kein Hintergrund-
-    /// Sync lief (der ersetzt diese Planung bei jedem Lauf). So kommt morgens
-    /// immer etwas — entweder echte Zahlen oder die Bitte, kurz zu öffnen.
+    /// Fallback alarm: fires TOMORROW 7:30 if no background
+    /// sync has run by then (which replaces this schedule on every run). That way
+    /// something always arrives in the morning — either real numbers or a request to open briefly.
     static func scheduleMorningReminder(hour: Int = 7, minute: Int = 30, language: PulseLanguage) {
         let de = (language == .de)
         let cal = Calendar.current
@@ -54,11 +54,11 @@ enum PulseNotifications {
         content.body = de ? "Öffne Pulse kurz – dann stehen Recovery und Schlafanalyse für heute bereit." : "Open Pulse briefly – recovery and sleep analysis for today will be ready."
         content.sound = .default
         let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
-        // Gleiche ID ersetzt die bestehende Planung (auch die für heute).
+        // Same ID replaces the existing schedule (including today's).
         center.add(UNNotificationRequest(identifier: morningReminderID, content: content, trigger: trigger))
     }
 
-    /// Abend-Erinnerung ~30 min vor der empfohlenen Zubettgehzeit (heute).
+    /// Evening reminder ~30 min before the recommended bedtime (today).
     static func scheduleBedtimeReminder(bedtimeMinutes: Double, language: PulseLanguage) {
         let de = (language == .de)
         cancelBedtimeReminder()
@@ -69,7 +69,7 @@ enum PulseNotifications {
         comps.minute = m % 60
         guard var fireDate = cal.date(from: comps) else { return }
         fireDate = fireDate.addingTimeInterval(-30 * 60)
-        // Nur planen, wenn die Zeit heute noch bevorsteht (Puffer 5 min).
+        // Only schedule if the time is still ahead today (5 min buffer).
         guard fireDate.timeIntervalSinceNow > 5 * 60 else { return }
         let content = UNMutableNotificationContent()
         content.title = de ? "Schlafenszeit rückt näher 🌙" : "Bedtime is approaching 🌙"
@@ -84,7 +84,7 @@ enum PulseNotifications {
         center.removePendingNotificationRequests(withIdentifiers: [bedtimeID])
     }
 
-    /// Warnung ~6,5 Tage nach dem Verbinden (bevor das Refresh-Token abläuft).
+    /// Warning ~6.5 days after connecting (before the refresh token expires).
     static func scheduleTokenExpiry(connectedAt: Date, language: PulseLanguage) {
         let de = (language == .de)
         cancelTokenExpiry()

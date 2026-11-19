@@ -7,20 +7,20 @@ public enum RecoveryZone: String, Sendable {
 public struct RecoveryComponent: Sendable {
     public let key: String
     public let label: String
-    /// Teil-Score 0–1.
+    /// Partial score 0–1.
     public let score01: Double
-    /// Normalisiertes Gewicht (Summe aller Komponenten = 1).
+    /// Normalized weight (sum of all components = 1).
     public let weight: Double
     public let detail: String
 }
 
 public struct RecoveryResult: Sendable {
     public let dateKey: String
-    /// Recovery-Score 1–99 %.
+    /// Recovery score 1–99 %.
     public let score: Int
     public let zone: RecoveryZone
     public let components: [RecoveryComponent]
-    /// True, solange die Baselines (< 5 Nächte) noch nicht belastbar sind.
+    /// True while the baselines (< 5 nights) are not yet solid.
     public let calibrating: Bool
     public let hrvValue: Double?
     public let hrvBaseline: Baseline?
@@ -28,9 +28,9 @@ public struct RecoveryResult: Sendable {
     public let rhrBaseline: Baseline?
 }
 
-/// Whoop-artiger Recovery-Score: HRV und Ruhepuls werden gegen die persönliche
-/// 30-Tage-Baseline verglichen (HRV logarithmiert, da rechtsschief verteilt),
-/// dazu Schlafperformance und Atemfrequenz-Abweichung.
+/// Whoop-like recovery score: HRV and resting HR are compared against the personal
+/// 30-day baseline (HRV log-transformed, since it is right-skewed),
+/// plus sleep performance and respiratory rate deviation.
 public enum RecoveryEngine {
     public static let weights: [String: Double] = [
         "hrv": 0.40,
@@ -122,7 +122,7 @@ public enum RecoveryEngine {
 
         var score = weighted * 100
 
-        // Abzüge für Warnsignale
+        // Deductions for warning signs
         if let spo2Min = today.spo2Min, spo2Min < 90 {
             score -= 7
         }
@@ -132,9 +132,9 @@ public enum RecoveryEngine {
 
         let final = Int(Stats.clamp(score, 1, 99).rounded())
         let zone: RecoveryZone = final >= 67 ? .green : (final >= 34 ? .yellow : .red)
-        // Kalibrierend nur bezogen auf Metriken, die überhaupt Daten liefern.
-        // Fehlt z. B. HRV komplett (liefert die API bei manchen Geräten nicht),
-        // darf das die Kalibrierung nicht für immer blockieren.
+        // Calibrating only refers to metrics that deliver data at all.
+        // If e.g. HRV is missing entirely (the API does not provide it for some devices),
+        // that must not block calibration forever.
         let hrvUncalibrated = today.hrvRmssd != nil && !(hrvBaseline?.isReliable ?? false)
         let rhrUncalibrated = today.restingHR != nil && !(rhrBaseline?.isReliable ?? false)
         let calibrating = hrvUncalibrated || rhrUncalibrated
