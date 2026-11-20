@@ -20,18 +20,18 @@ public enum APIError: Error, LocalizedError, Sendable {
         case .http(let code, let body):
             return "HTTP \(code): \(body)"
         case .badResponse(let message):
-            return "Unerwartete Antwort: \(message)"
+            return "Unexpected response: \(message)"
         case .allVariantsFailed(let message):
-            return "Kein Lesepfad funktionierte: \(message)"
+            return "No read path worked: \(message)"
         }
     }
 }
 
-/// Client für die Google Health API (v4).
-/// Basis: https://health.googleapis.com/v4 — Datentypen als kebab-case in der URL,
-/// Filter nach AIP-160 (snake_case-Feldpfade). Da die API neu ist, probiert der
-/// Client je Datentyp mehrere Lesevarianten (reconcile → list → list nur mit
-/// Startfilter) und merkt sich die funktionierende.
+/// Client for the Google Health API (v4).
+/// Base: https://health.googleapis.com/v4 — data types as kebab-case in the URL,
+/// filters per AIP-160 (snake_case field paths). Since the API is new, the client
+/// tries several read variants per data type (reconcile → list → list with only
+/// a start filter) and remembers the one that works.
 public final class HealthAPIClient: @unchecked Sendable {
     public static let baseURL = URL(string: "https://health.googleapis.com/v4")!
 
@@ -41,9 +41,9 @@ public final class HealthAPIClient: @unchecked Sendable {
     private let lock = NSLock()
     private var workingVariant: [String: ReadVariant] = [:]
 
-    // Globale Drossel: Google erlaubt 300 Requests/min pro Nutzer (~5/s).
-    // Alle Requests – auch parallele – halten einen Mindestabstand ein; ein
-    // 429 verschiebt das Zeitfenster für ALLE Tasks nach hinten (Cooldown).
+    // Global throttle: Google allows 300 requests/min per user (~5/s).
+    // All requests – parallel ones too – keep a minimum spacing; a
+    // 429 pushes the time window back for ALL tasks (cooldown).
     private var nextAllowedRequest = Date.distantPast
     private let minRequestInterval: TimeInterval = 0.25
 
@@ -59,11 +59,11 @@ public final class HealthAPIClient: @unchecked Sendable {
         case listFrom
     }
 
-    /// Zeitformat des Filterwerts — je Datentyp unterschiedlich.
+    /// Time format of the filter value — differs per data type.
     public enum TimeFilterFormat {
-        case physical      // RFC-3339 mit Z (Sample-/Session-Zeiten, z.B. Schlaf)
-        case civilDate     // "yyyy-MM-dd" (Tagesdatentypen, `date`)
-        case civilDateTime // lokale Zivilzeit ohne Z (z.B. exercise.interval.civil_start_time)
+        case physical      // RFC 3339 with Z (sample/session times, e.g. sleep)
+        case civilDate     // "yyyy-MM-dd" (daily data types, `date`)
+        case civilDateTime // local civil time without Z (e.g. exercise.interval.civil_start_time)
     }
 
     private static let filterFormatter: ISO8601DateFormatter = {
@@ -80,14 +80,14 @@ public final class HealthAPIClient: @unchecked Sendable {
         return f
     }()
 
-    // MARK: - Roh-Datenpunkte
+    // MARK: - Raw data points
 
-    /// Lädt alle Datenpunkte eines Typs im Zeitfenster (mit Pagination).
+    /// Loads all data points of a type in the time window (with pagination).
     /// - Parameters:
-    ///   - type: kebab-case-Datentyp der URL, z.B. "heart-rate"
-    ///   - payloadKey: camelCase-Key des Payloads im Datenpunkt, z.B. "heartRate"
-    ///   - filterField: Feldpfad hinter dem Payload-Key, z.B. "sample_time.physical_time"
-    ///   - timeFormat: Zeitformat des Filterwerts (physisch / Zivildatum / Zivilzeit)
+    ///   - type: kebab-case data type of the URL, e.g. "heart-rate"
+    ///   - payloadKey: camelCase key of the payload in the data point, e.g. "heartRate"
+    ///   - filterField: field path after the payload key, e.g. "sample_time.physical_time"
+    ///   - timeFormat: time format of the filter value (physical / civil date / civil time)
     public func fetchRawDataPoints(
         type: String,
         payloadKey: String,
@@ -177,9 +177,9 @@ public final class HealthAPIClient: @unchecked Sendable {
         lock.unlock()
     }
 
-    // MARK: - Typisierte Abfragen
+    // MARK: - Typed queries
 
-    /// Sample-Datentypen (Herzfrequenz, HRV, SpO2, Atemfrequenz, Temperatur …).
+    /// Sample data types (heart rate, HRV, SpO2, respiratory rate, temperature …).
     public func fetchSamples(
         type: String,
         payloadKey: String,
@@ -200,10 +200,10 @@ public final class HealthAPIClient: @unchecked Sendable {
         ).samples
     }
 
-    /// Wie `fetchSamples`, liefert zusätzlich die Zahl der **rohen** Datenpunkte.
-    /// Damit lässt sich im Sync-Protokoll unterscheiden, ob Google gar nichts
-    /// geliefert hat (rawCount 0) oder ob wir die Werte nicht dekodieren konnten
-    /// (rawCount > 0, samples leer → Feldname stimmt nicht).
+    /// Like `fetchSamples`, but also returns the number of **raw** data points.
+    /// This lets the sync log distinguish whether Google delivered nothing
+    /// at all (rawCount 0) or whether we could not decode the values
+    /// (rawCount > 0, samples empty → field name is wrong).
     public func fetchSamplesDetailed(
         type: String,
         payloadKey: String,
@@ -233,7 +233,7 @@ public final class HealthAPIClient: @unchecked Sendable {
         return (samples, points.count)
     }
 
-    /// Tagesdatentypen (z.B. resting-heart-rate) → Werte je "yyyy-MM-dd".
+    /// Daily data types (e.g. resting-heart-rate) → values per "yyyy-MM-dd".
     public func fetchDailyValues(
         type: String,
         payloadKey: String,
@@ -264,7 +264,7 @@ public final class HealthAPIClient: @unchecked Sendable {
         return result
     }
 
-    /// Schlaf-Sessions inkl. Phasen.
+    /// Sleep sessions incl. stages.
     public func fetchSleepSessions(start: Date, end: Date) async throws -> [SleepSession] {
         let points = try await fetchRawDataPoints(
             type: "sleep",
@@ -325,10 +325,10 @@ public final class HealthAPIClient: @unchecked Sendable {
         )
     }
 
-    /// Workout-/Exercise-Sessions.
+    /// Workout/exercise sessions.
     public func fetchExerciseSessions(start: Date, end: Date) async throws -> [Workout] {
-        // Exercise ist filterbar nur über interval.civil_start_time (Zivilzeit,
-        // ISO ohne Z, nur >=/<). Der listFrom-Lesepfad nutzt genau dieses `>=`.
+        // Exercise is only filterable via interval.civil_start_time (civil time,
+        // ISO without Z, only >=/<). The listFrom read path uses exactly this `>=`.
         let points = try await fetchRawDataPoints(
             type: "exercise",
             payloadKey: "exercise",
@@ -342,7 +342,7 @@ public final class HealthAPIClient: @unchecked Sendable {
 
     public static func parseExercise(_ point: [String: Any]) -> Workout? {
         let payload = (point["exercise"] as? [String: Any]) ?? point
-        // Zeitintervall: Google nennt es "interval"; ältere Fixtures "sessionTimeInterval".
+        // Time interval: Google calls it "interval"; older fixtures "sessionTimeInterval".
         let interval = (payload["interval"] as? [String: Any])
             ?? (payload["sessionTimeInterval"] as? [String: Any]) ?? [:]
         guard let start = JSONExtract.date(from: interval["startTime"]) ?? JSONExtract.firstDate(in: payload, keys: ["startTime"]),
@@ -359,7 +359,7 @@ public final class HealthAPIClient: @unchecked Sendable {
         return Workout(id: id, name: name, start: start, end: end, averageHR: avgHR, calories: calories)
     }
 
-    /// Nutzerprofil (Name, Geburtstag falls freigegeben).
+    /// User profile (name, birthday if shared).
     public func fetchProfile() async throws -> UserProfile {
         let json = try await getJSON(path: "/users/me/profile", query: [])
         let payload = (json["profile"] as? [String: Any]) ?? json
@@ -373,15 +373,15 @@ public final class HealthAPIClient: @unchecked Sendable {
 
     private func getJSON(path: String, query: [URLQueryItem]) async throws -> [String: Any] {
         guard var components = URLComponents(url: Self.baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false) else {
-            throw APIError.badResponse("Ungültiger Pfad")
+            throw APIError.badResponse("Invalid path")
         }
-        // ":reconcile" darf nicht als Pfadsegment encodiert werden
+        // ":reconcile" must not be encoded as a path segment
         components.path = components.path.replacingOccurrences(of: "%3A", with: ":")
         if !query.isEmpty {
             components.queryItems = query
         }
         guard let url = components.url else {
-            throw APIError.badResponse("Ungültige URL")
+            throw APIError.badResponse("Invalid URL")
         }
 
         var attempt = 0
@@ -402,14 +402,14 @@ public final class HealthAPIClient: @unchecked Sendable {
                 throw APIError.badResponse(error.localizedDescription)
             }
             guard let http = response as? HTTPURLResponse else {
-                throw APIError.badResponse("Keine HTTP-Antwort")
+                throw APIError.badResponse("No HTTP response")
             }
 
             switch http.statusCode {
             case 200..<300:
                 guard let object = try? JSONSerialization.jsonObject(with: data),
                       let dict = object as? [String: Any] else {
-                    throw APIError.badResponse("Kein JSON-Objekt")
+                    throw APIError.badResponse("No JSON object")
                 }
                 return dict
             case 401 where !didRefresh:
@@ -417,9 +417,9 @@ public final class HealthAPIClient: @unchecked Sendable {
                 _ = try await auth.refresh(config: config)
                 continue
             case 429:
-                // Minuten-Quota erreicht: ALLE Tasks global ausbremsen und
-                // großzügiger erneut versuchen — der Sync soll sich aufs
-                // erlaubte Tempo einpendeln, nicht scheitern.
+                // Per-minute quota reached: throttle ALL tasks globally and
+                // retry more generously — the sync should settle at the
+                // allowed pace, not fail.
                 guard attempt < 5 else {
                     throw APIError.http(http.statusCode, Self.bodyExcerpt(data))
                 }
@@ -451,9 +451,9 @@ public final class HealthAPIClient: @unchecked Sendable {
         String(String(data: data, encoding: .utf8)?.prefix(300) ?? "")
     }
 
-    // MARK: - Drossel & Backoff
+    // MARK: - Throttle & backoff
 
-    /// Reserviert den nächsten Request-Slot und wartet, bis er frei ist.
+    /// Reserves the next request slot and waits until it is free.
     private func throttle() async {
         let wait: TimeInterval = {
             lock.lock()
@@ -468,7 +468,7 @@ public final class HealthAPIClient: @unchecked Sendable {
         }
     }
 
-    /// Nach einem 429: alle weiteren Requests global um `delay` verschieben.
+    /// After a 429: postpone all further requests globally by `delay`.
     private func imposeCooldown(_ delay: TimeInterval) {
         lock.lock()
         defer { lock.unlock() }
@@ -478,7 +478,7 @@ public final class HealthAPIClient: @unchecked Sendable {
         }
     }
 
-    /// Wartezeit für einen Retry: Retry-After-Header, sonst exponentiell (2,4,8…), Kappung 60 s.
+    /// Wait time for a retry: Retry-After header, otherwise exponential (2,4,8…), capped at 60 s.
     public static func retryDelay(attempt: Int, retryAfterHeader: String?) -> TimeInterval {
         if let header = retryAfterHeader, let seconds = Double(header), seconds > 0 {
             return min(seconds, 60)

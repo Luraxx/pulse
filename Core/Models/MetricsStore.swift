@@ -1,13 +1,13 @@
 import Foundation
 
-/// JSON-basierter Speicher für alle Tagesdatensätze.
-/// Wird von der App auf dem MainActor verwendet; die Sync-Engine liefert
-/// fertige DayRecords, die hier zusammengeführt werden.
+/// JSON-based storage for all daily records.
+/// Used by the app on the MainActor; the sync engine delivers
+/// finished DayRecords that are merged here.
 public final class MetricsStore {
     public private(set) var days: [String: DayRecord] = [:]
     public let fileURL: URL
 
-    /// Intraday-HR wird nur für die letzten N Tage aufbewahrt, um die Datei klein zu halten.
+    /// Intraday HR is kept only for the last N days to keep the file small.
     public var hrRetentionDays: Int = 28
 
     public init(directory: URL, filename: String = "days.json") {
@@ -45,7 +45,7 @@ public final class MetricsStore {
         try? FileManager.default.removeItem(at: fileURL)
     }
 
-    // MARK: - Zugriff
+    // MARK: - Access
 
     public func record(for key: String) -> DayRecord {
         days[key] ?? DayRecord(date: key)
@@ -75,21 +75,21 @@ public final class MetricsStore {
         days.keys.sorted()
     }
 
-    /// Chronologische Records der letzten `count` Kalendertage bis `key` (inklusive).
-    /// Fehlende Tage werden übersprungen.
+    /// Chronological records of the last `count` calendar days up to `key` (inclusive).
+    /// Missing days are skipped.
     public func chronological(upTo key: String, count: Int) -> [DayRecord] {
         let start = DayKey.addDays(key, -(count - 1))
         return DayKey.keys(from: start, to: key).compactMap { days[$0] }
     }
 
-    /// Records der `count` Tage VOR `key` (exklusive), chronologisch.
+    /// Records of the `count` days BEFORE `key` (exclusive), chronological.
     public func history(before key: String, days count: Int) -> [DayRecord] {
         let end = DayKey.addDays(key, -1)
         let start = DayKey.addDays(key, -count)
         return DayKey.keys(from: start, to: end).compactMap { days[$0] }
     }
 
-    // MARK: - Pflege
+    // MARK: - Maintenance
 
     private func pruneHeartRateSamples() {
         let cutoff = DayKey.addDays(DayKey.today(), -hrRetentionDays)

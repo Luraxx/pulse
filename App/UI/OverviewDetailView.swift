@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Übersichts-Seite: die drei Ringe groß nebeneinander, gestaffelt animiert.
-/// Jeder Ring führt zur jeweiligen Detail-Seite.
+/// Overview page: the three rings large side by side, with staggered animation.
+/// Each ring leads to its detail page.
 struct OverviewDetailView: View {
     @Environment(AppModel.self) private var model
     @State private var appear = false

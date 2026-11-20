@@ -1,7 +1,7 @@
 import Foundation
 import PulseCore
 
-// Self-Test-Runner: verifiziert die Core-Logik ohne Xcode/iOS-SDK.
+// Self-test runner: verifies the Core logic without Xcode/iOS SDK.
 
 var failures: [String] = []
 
@@ -9,7 +9,7 @@ func check(_ condition: Bool, _ message: String) {
     if condition {
         print("  ✓ \(message)")
     } else {
-        print("  ✗ FEHLER: \(message)")
+        print("  ✗ FAILED: \(message)")
         failures.append(message)
     }
 }
@@ -22,47 +22,47 @@ func jsonDict(_ raw: String) -> [String: Any] {
     guard let data = raw.data(using: .utf8),
           let object = try? JSONSerialization.jsonObject(with: data),
           let dict = object as? [String: Any] else {
-        failures.append("Fixture nicht parsebar")
+        failures.append("Fixture not parseable")
         return [:]
     }
     return dict
 }
 
-// MARK: PKCE (RFC-7636-Testvektor)
+// MARK: PKCE (RFC 7636 test vector)
 
 section("PKCE")
 let pkce = PKCE(verifier: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
-check(pkce.challenge == "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", "SHA256-Challenge entspricht RFC-7636-Vektor")
+check(pkce.challenge == "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", "SHA256 challenge matches RFC 7636 vector")
 let freshPKCE = PKCE()
-check(freshPKCE.verifier.count >= 43, "Zufälliger Verifier hat ausreichende Länge")
-check(freshPKCE.verifier != PKCE().verifier, "Verifier sind zufällig")
+check(freshPKCE.verifier.count >= 43, "Random verifier has sufficient length")
+check(freshPKCE.verifier != PKCE().verifier, "Verifiers are random")
 
-// MARK: OAuth-Konfiguration
+// MARK: OAuth configuration
 
-section("OAuth-Konfiguration")
+section("OAuth configuration")
 let config = GoogleOAuthConfig(clientID: "407408718192-abc123.apps.googleusercontent.com")
-check(config.reversedClientScheme == "com.googleusercontent.apps.407408718192-abc123", "Reversed-Client-Schema korrekt")
-check(config.redirectURI == "com.googleusercontent.apps.407408718192-abc123:/oauth2redirect", "Redirect-URI korrekt")
-check(!GoogleOAuthConfig(clientID: "kaputt").isValid, "Ungültige Client-ID wird erkannt")
+check(config.reversedClientScheme == "com.googleusercontent.apps.407408718192-abc123", "Reversed client scheme correct")
+check(config.redirectURI == "com.googleusercontent.apps.407408718192-abc123:/oauth2redirect", "Redirect URI correct")
+check(!GoogleOAuthConfig(clientID: "kaputt").isValid, "Invalid client ID is detected")
 
 let auth = GoogleAuth(usesKeychain: false)
 if let url = auth.authorizationURL(config: config, pkce: pkce, state: "test-state") {
     let absolute = url.absoluteString
-    check(absolute.hasPrefix("https://accounts.google.com/o/oauth2/v2/auth"), "Auth-URL zeigt auf Google")
-    check(absolute.contains("code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"), "Auth-URL enthält PKCE-Challenge")
-    check(absolute.contains("googlehealth.sleep.readonly"), "Auth-URL enthält Health-Scopes")
-    check(!absolute.contains("prompt="), "Kein prompt=consent (Google-Health-Empfehlung)")
+    check(absolute.hasPrefix("https://accounts.google.com/o/oauth2/v2/auth"), "Auth URL points to Google")
+    check(absolute.contains("code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"), "Auth URL contains PKCE challenge")
+    check(absolute.contains("googlehealth.sleep.readonly"), "Auth URL contains Health scopes")
+    check(!absolute.contains("prompt="), "No prompt=consent (Google Health recommendation)")
 } else {
-    check(false, "Auth-URL konnte nicht gebaut werden")
+    check(false, "Auth URL could not be built")
 }
 let callback = URL(string: "com.googleusercontent.apps.x:/oauth2redirect?state=test-state&code=4/abc")!
-check(GoogleAuth.extractCode(from: callback, expectedState: "test-state") == "4/abc", "Code-Extraktion aus Callback")
-check(GoogleAuth.extractCode(from: callback, expectedState: "falsch") == nil, "State-Mismatch wird abgelehnt")
-check(GoogleAuth.formEncode(["a": "b c", "x": "y+z"]) == "a=b%20c&x=y%2Bz", "Form-Encoding percent-encodiert korrekt")
+check(GoogleAuth.extractCode(from: callback, expectedState: "test-state") == "4/abc", "Code extraction from callback")
+check(GoogleAuth.extractCode(from: callback, expectedState: "falsch") == nil, "State mismatch is rejected")
+check(GoogleAuth.formEncode(["a": "b c", "x": "y+z"]) == "a=b%20c&x=y%2Bz", "Form encoding percent-encodes correctly")
 
-// MARK: JSON-Extraktion (Google-Health-Formate)
+// MARK: JSON extraction (Google Health formats)
 
-section("JSON-Extraktion")
+section("JSON extraction")
 check(JSONExtract.snakeCase("heartRateVariability") == "heart_rate_variability", "camelCase → snake_case")
 
 let hrPoint = jsonDict(#"""
@@ -72,11 +72,11 @@ let hrPoint = jsonDict(#"""
 }
 """#)
 let hrPayload = (hrPoint["heartRate"] as? [String: Any]) ?? [:]
-check(JSONExtract.firstDouble(in: hrPayload, keys: ["beatsPerMinute", "bpm"]) == 72, "Herzfrequenz-Wert extrahiert")
-check(JSONExtract.firstDate(in: hrPayload, keys: ["physicalTime"]) != nil, "Sample-Zeit extrahiert (verschachtelt)")
+check(JSONExtract.firstDouble(in: hrPayload, keys: ["beatsPerMinute", "bpm"]) == 72, "Heart rate value extracted")
+check(JSONExtract.firstDate(in: hrPayload, keys: ["physicalTime"]) != nil, "Sample time extracted (nested)")
 
 let civil = JSONExtract.civilDateString(from: ["year": 2026, "month": 7, "day": 5])
-check(civil == "2026-07-05", "CivilDate-Objekt → yyyy-MM-dd")
+check(civil == "2026-07-05", "CivilDate object → yyyy-MM-dd")
 
 let sleepPoint = jsonDict(#"""
 {
@@ -96,16 +96,16 @@ let sleepPoint = jsonDict(#"""
 }
 """#)
 if let session = HealthAPIClient.parseSleep(sleepPoint) {
-    check(session.stages.count == 5, "5 Schlafphasen dekodiert")
-    check(session.minutesAsleep == 457, "minutesAsleep aus Summary übernommen")
+    check(session.stages.count == 5, "5 sleep stages decoded")
+    check(session.minutesAsleep == 457, "minutesAsleep taken from summary")
     check(session.stages[1].stage == .deep, "DEEP → .deep gemappt")
-    check(abs(session.minutesInBed - 465) < 0.01, "Zeit im Bett = 465 min")
+    check(abs(session.minutesInBed - 465) < 0.01, "Time in bed = 465 min")
 } else {
-    check(false, "Schlaf-Fixture konnte nicht dekodiert werden")
+    check(false, "Sleep fixture could not be decoded")
 }
-check(HealthAPIClient.parseSleep(["sleep": ["interval": [:]]]) == nil, "Unvollständige Schlafdaten → nil statt Absturz")
+check(HealthAPIClient.parseSleep(["sleep": ["interval": [:]]]) == nil, "Incomplete sleep data → nil instead of crash")
 
-// Exercise: Google nennt das Zeitintervall "interval" (Filter interval.civil_start_time).
+// Exercise: Google calls the time interval "interval" (filter interval.civil_start_time).
 let exercisePoint = jsonDict(#"""
 {
   "name": "users/me/dataTypes/exercise/dataPoints/xyz",
@@ -119,56 +119,56 @@ let exercisePoint = jsonDict(#"""
 }
 """#)
 if let workout = HealthAPIClient.parseExercise(exercisePoint) {
-    check(workout.name == "Laufen", "Workout-Name aus activityName")
-    check(abs(workout.durationMinutes - 45) < 0.01, "Workout-Dauer aus interval = 45 min")
-    check(workout.averageHR == 148, "Ø-Puls des Workouts dekodiert")
+    check(workout.name == "Laufen", "Workout name from activityName")
+    check(abs(workout.durationMinutes - 45) < 0.01, "Workout duration from interval = 45 min")
+    check(workout.averageHR == 148, "Workout average HR decoded")
 } else {
-    check(false, "Exercise-Fixture mit interval konnte nicht dekodiert werden")
+    check(false, "Exercise fixture with interval could not be decoded")
 }
-// Ältere/alternative Struktur "sessionTimeInterval" bleibt als Fallback lesbar.
+// Older/alternative structure "sessionTimeInterval" stays readable as a fallback.
 let exerciseAlt = jsonDict(#"""
 { "exercise": { "activityName": "Rad", "sessionTimeInterval": { "startTime": "2026-07-17T08:00:00Z", "endTime": "2026-07-17T08:30:00Z" } } }
 """#)
-check(HealthAPIClient.parseExercise(exerciseAlt)?.name == "Rad", "Fallback sessionTimeInterval bleibt lesbar")
-check(HealthAPIClient.parseExercise(["exercise": ["interval": [:]]]) == nil, "Unvollständiges Workout → nil statt Absturz")
+check(HealthAPIClient.parseExercise(exerciseAlt)?.name == "Rad", "Fallback sessionTimeInterval stays readable")
+check(HealthAPIClient.parseExercise(["exercise": ["interval": [:]]]) == nil, "Incomplete workout → nil instead of crash")
 
 // MARK: DayKey
 
 section("DayKey")
-check(DayKey.addDays("2026-07-18", -1) == "2026-07-17", "addDays über Tagesgrenze")
-check(DayKey.keys(from: "2026-02-27", to: "2026-03-02").count == 4, "Schaltjahr-Bereich (2026 kein Schaltjahr): 27.2.–2.3. = 4 Tage")
-check(DayKey.distance(from: "2026-07-01", to: "2026-07-18") == 17, "Distanz zwischen Keys")
+check(DayKey.addDays("2026-07-18", -1) == "2026-07-17", "addDays across day boundary")
+check(DayKey.keys(from: "2026-02-27", to: "2026-03-02").count == 4, "Leap-year range (2026 not a leap year): Feb 27–Mar 2 = 4 days")
+check(DayKey.distance(from: "2026-07-01", to: "2026-07-18") == 17, "Distance between keys")
 if let lateEvening = DayKey.date(from: "2026-07-17")?.addingTimeInterval(23 * 3600) {
-    check(DayKey.nightKey(for: lateEvening) == "2026-07-18", "23-Uhr-Sample zählt zur Nacht des Folgetags")
+    check(DayKey.nightKey(for: lateEvening) == "2026-07-18", "11 pm sample counts toward the next day's night")
 }
 if let earlyMorning = DayKey.date(from: "2026-07-18")?.addingTimeInterval(5 * 3600) {
-    check(DayKey.nightKey(for: earlyMorning) == "2026-07-18", "5-Uhr-Sample zählt zum selben Tag")
+    check(DayKey.nightKey(for: earlyMorning) == "2026-07-18", "5 am sample counts toward the same day")
 }
 
-// MARK: Statistik
+// MARK: Statistics
 
-section("Statistik")
+section("Statistics")
 check(Stats.percentile([1, 2, 3, 4, 5], 0.5) == 3, "Median")
-check(Stats.percentile([10], 0.05) == 10, "Perzentil mit einem Wert")
+check(Stats.percentile([10], 0.05) == 10, "Percentile with a single value")
 check(abs(Stats.logistic(0) - 0.5) < 1e-9, "Logistic(0) = 0.5")
 if let baseline = Stats.baseline([60, 62, 64, 66, 68]) {
     check(abs(baseline.mean - 64) < 1e-9, "Baseline-Mittelwert")
-    check(baseline.isReliable, "5 Werte gelten als belastbar")
-    check(abs(baseline.z(64)) < 1e-9, "z-Score am Mittelwert = 0")
+    check(baseline.isReliable, "5 values count as solid")
+    check(abs(baseline.z(64)) < 1e-9, "z-score at the mean = 0")
 } else {
-    check(false, "Baseline nil trotz 5 Werten")
+    check(false, "Baseline nil despite 5 values")
 }
-check(Stats.baseline([1, 2]) == nil, "Baseline braucht mindestens 3 Werte")
+check(Stats.baseline([1, 2]) == nil, "Baseline needs at least 3 values")
 
-// MARK: Sprachen
+// MARK: Languages
 
-section("Sprachen (DE/EN)")
-check(JournalFactor.alcohol.label(.de) == "Alkohol" && JournalFactor.alcohol.label(.en) == "Alcohol", "JournalFactor zweisprachig")
-check(BiologicalSex.male.label(.en) == "Male", "BiologicalSex englisch")
-check(HealthMetricKind.restingHR.label(.en) == "Resting HR" && HealthMetricKind.restingHR.unit(.en) == "bpm", "HealthMetricKind englisch inkl. Einheit")
-check(StrainEngine.zoneLabels(.en).count == StrainEngine.zoneLabels.count, "Zonen-Labels: EN-Liste vollständig")
-// Eigene lokale Inputs — fitInputs/healthRecord sind hier noch nicht initialisiert
-// (main.swift-Top-Level läuft sequenziell; Vorwärts-Zugriff wäre ein Segfault).
+section("Languages (DE/EN)")
+check(JournalFactor.alcohol.label(.de) == "Alkohol" && JournalFactor.alcohol.label(.en) == "Alcohol", "JournalFactor bilingual")
+check(BiologicalSex.male.label(.en) == "Male", "BiologicalSex English")
+check(HealthMetricKind.restingHR.label(.en) == "Resting HR" && HealthMetricKind.restingHR.unit(.en) == "bpm", "HealthMetricKind English incl. unit")
+check(StrainEngine.zoneLabels(.en).count == StrainEngine.zoneLabels.count, "Zone labels: EN list complete")
+// Own local inputs — fitInputs/healthRecord are not initialized yet at this point
+// (main.swift top level runs sequentially; a forward access would segfault).
 let langInputs = AgeInputs(
     chronoAge: 30, sex: .male,
     vo2maxValues: [52, 51, 53, 52, 54],
@@ -180,8 +180,8 @@ let langInputs = AgeInputs(
 )
 let deAge = AgeEngine.compute(dateKey: "2026-07-18", inputs: langInputs, language: .de)
 let enAge = AgeEngine.compute(dateKey: "2026-07-18", inputs: langInputs, language: .en)
-check(enAge.components.contains { $0.label == "Resting HR" || $0.label == "Sleep" || $0.label == "Activity" }, "AgeEngine-Komponenten auf Englisch")
-check(enAge.pulseAge == deAge.pulseAge, "Sprache ändert nur Texte, nie Werte")
+check(enAge.components.contains { $0.label == "Resting HR" || $0.label == "Sleep" || $0.label == "Activity" }, "AgeEngine components in English")
+check(enAge.pulseAge == deAge.pulseAge, "Language only changes texts, never values")
 func langHealthRecord(_ key: String, rhr: Double, resp: Double) -> DayRecord {
     var r = DayRecord(date: key)
     r.restingHR = rhr; r.respiratoryRate = resp; r.hrvRmssd = 60; r.spo2Avg = 97; r.bodyTemp = 34
@@ -190,82 +190,82 @@ func langHealthRecord(_ key: String, rhr: Double, resp: Double) -> DayRecord {
 var langAlertRecords = (0..<8).map { langHealthRecord(DayKey.addDays("2026-06-01", $0), rhr: 55, resp: 14) }
 langAlertRecords.append(langHealthRecord(DayKey.addDays("2026-06-01", 8), rhr: 70, resp: 18))
 if let enAlert = HealthMonitor.alert(records: langAlertRecords, language: .en) {
-    check(enAlert.message.contains("outside your baseline"), "Health-Alert englisch formuliert")
+    check(enAlert.message.contains("outside your baseline"), "Health alert phrased in English")
 } else {
-    check(false, "EN-Health-Alert fehlt")
+    check(false, "EN health alert missing")
 }
 
-// MARK: Trend-Aggregation
+// MARK: Trend aggregation
 
-section("Trend-Aggregation")
+section("Trend aggregation")
 let maPairs: [(key: String, value: Double)] = (0..<10).map { (DayKey.addDays("2026-06-01", $0), Double($0)) }
 let ma3 = TrendMath.movingAverage(maPairs, window: 3)
-check(ma3.count == 10, "Gleitender Mittelwert behält die Punktzahl")
-check(abs(ma3[0].value - 0) < 1e-9, "Erster Punkt: Mittel aus sich selbst")
-check(abs(ma3[2].value - 1) < 1e-9, "Fenster 3 über 0,1,2 → 1")
-check(abs(ma3[9].value - 8) < 1e-9, "Fenster 3 über 7,8,9 → 8")
-// Lücken: fehlende Tage werden übersprungen, nicht als 0 gezählt.
+check(ma3.count == 10, "Moving average keeps the point count")
+check(abs(ma3[0].value - 0) < 1e-9, "First point: mean of itself")
+check(abs(ma3[2].value - 1) < 1e-9, "Window 3 over 0,1,2 → 1")
+check(abs(ma3[9].value - 8) < 1e-9, "Window 3 over 7,8,9 → 8")
+// Gaps: missing days are skipped, not counted as 0.
 let gapPairs: [(key: String, value: Double)] = [("2026-06-01", 10), ("2026-06-03", 30)]
 let maGap = TrendMath.movingAverage(gapPairs, window: 3)
-check(abs(maGap[1].value - 20) < 1e-9, "Lücke im Fenster → Mittel nur über vorhandene Werte")
+check(abs(maGap[1].value - 20) < 1e-9, "Gap in window → mean only over existing values")
 
-// 2026-07-19 war ein Sonntag, 2026-07-20 ein Montag.
+// 2026-07-19 was a Sunday, 2026-07-20 a Monday.
 let weekPairs: [(key: String, value: Double)] = [
-    ("2026-07-17", 60), ("2026-07-18", 70), ("2026-07-19", 80), // Woche ab Mo 13.07.
-    ("2026-07-20", 40), ("2026-07-21", 60),                     // Woche ab Mo 20.07.
+    ("2026-07-17", 60), ("2026-07-18", 70), ("2026-07-19", 80), // Week starting Mon 13.07.
+    ("2026-07-20", 40), ("2026-07-21", 60),                     // Week starting Mon 20.07.
 ]
 let weekly = TrendMath.weeklyMean(weekPairs)
-check(weekly.count == 2, "Zwei Kalenderwochen → zwei Punkte")
-check(weekly[0].key == "2026-07-13" && abs(weekly[0].value - 70) < 1e-9, "Woche 1: Montag-Key + Mittel 70")
-check(weekly[1].key == "2026-07-20" && abs(weekly[1].value - 50) < 1e-9, "Woche 2: Montag-Key + Mittel 50")
+check(weekly.count == 2, "Two calendar weeks → two points")
+check(weekly[0].key == "2026-07-13" && abs(weekly[0].value - 70) < 1e-9, "Week 1: Monday key + mean 70")
+check(weekly[1].key == "2026-07-20" && abs(weekly[1].value - 50) < 1e-9, "Week 2: Monday key + mean 50")
 
-// MARK: Strain-Engine
+// MARK: Strain engine
 
-section("Strain-Engine")
-check(StrainEngine.strain(fromRaw: 0) == 0, "Kein Load → Strain 0")
+section("Strain engine")
+check(StrainEngine.strain(fromRaw: 0) == 0, "No load → strain 0")
 let s60 = StrainEngine.strain(fromRaw: 60)
 let s300 = StrainEngine.strain(fromRaw: 300)
 let s900 = StrainEngine.strain(fromRaw: 900)
 let s5000 = StrainEngine.strain(fromRaw: 5000)
-check(s60 > 2 && s60 < 4, "Lockerer Tag ≈ 2–4 (ist \(String(format: "%.1f", s60)))")
-check(s300 > 9 && s300 < 12, "Solides Training ≈ 9–12 (ist \(String(format: "%.1f", s300)))")
-check(s900 > 16 && s900 < 19, "Harter Tag ≈ 16–19 (ist \(String(format: "%.1f", s900)))")
-check(s5000 < 21, "Skala bleibt unter 21 (ist \(String(format: "%.2f", s5000)))")
-check(s60 < s300 && s300 < s900 && s900 < s5000, "Strain wächst monoton mit Load")
-// Strain-Ziel aus Recovery (Whoop-Bereiche: Training 14–18, locker 10–14).
+check(s60 > 2 && s60 < 4, "Easy day ≈ 2–4 (is \(String(format: "%.1f", s60)))")
+check(s300 > 9 && s300 < 12, "Solid training ≈ 9–12 (is \(String(format: "%.1f", s300)))")
+check(s900 > 16 && s900 < 19, "Hard day ≈ 16–19 (is \(String(format: "%.1f", s900)))")
+check(s5000 < 21, "Scale stays below 21 (is \(String(format: "%.2f", s5000)))")
+check(s60 < s300 && s300 < s900 && s900 < s5000, "Strain grows monotonically with load")
+// Strain target from recovery (Whoop ranges: training 14–18, easy 10–14).
 let t90 = StrainEngine.targetStrain(forRecovery: 90)
 let t67 = StrainEngine.targetStrain(forRecovery: 67)
 let t34 = StrainEngine.targetStrain(forRecovery: 34)
-check(t90 >= 17 && t90 <= 18.5, "Recovery 90 → Trainings-Ziel (\(String(format: "%.1f", t90)))")
-check(t67 >= 13 && t67 <= 14, "Recovery 67 → moderates Ziel (\(String(format: "%.1f", t67)))")
-check(t34 >= 6 && t34 <= 8, "Recovery 34 → Erholungs-Ziel (\(String(format: "%.1f", t34)))")
-check(StrainEngine.targetStrain(forRecovery: 5) >= 3, "Ziel-Untergrenze 3")
-check(StrainEngine.targetStrain(forRecovery: 99) <= 18.5, "Ziel-Obergrenze 18,5 (nie All-out)")
-check(t90 > t67 && t67 > t34, "Ziel wächst monoton mit Recovery")
+check(t90 >= 17 && t90 <= 18.5, "Recovery 90 → training target (\(String(format: "%.1f", t90)))")
+check(t67 >= 13 && t67 <= 14, "Recovery 67 → moderate target (\(String(format: "%.1f", t67)))")
+check(t34 >= 6 && t34 <= 8, "Recovery 34 → recovery target (\(String(format: "%.1f", t34)))")
+check(StrainEngine.targetStrain(forRecovery: 5) >= 3, "Target lower bound 3")
+check(StrainEngine.targetStrain(forRecovery: 99) <= 18.5, "Target upper bound 18.5 (never all-out)")
+check(t90 > t67 && t67 > t34, "Target grows monotonically with recovery")
 
-check(StrainEngine.zoneIndex(for: 0.1) == nil, "Unter Zone 0 → kein Load")
-check(StrainEngine.zoneIndex(for: 0.5) == 2, "50 % HRR → Zone 3 (Index 2)")
-check(StrainEngine.zoneIndex(for: 0.99) == 5, "99 % HRR → Maximal-Zone")
+check(StrainEngine.zoneIndex(for: 0.1) == nil, "Below zone 0 → no load")
+check(StrainEngine.zoneIndex(for: 0.5) == 2, "50 % HRR → zone 3 (index 2)")
+check(StrainEngine.zoneIndex(for: 0.99) == 5, "99 % HRR → max zone")
 
-// Ruhezeit: Samples nahe Ruhepuls erzeugen keine aktive Zonenzeit, aber restMin.
+// Rest time: samples near resting HR produce no active zone time, but restMin.
 let strainBase = DayKey.date(from: "2026-07-17")!
 let restSamples = (0..<10).map { HRSample(t: strainBase.addingTimeInterval(Double($0) * 60), bpm: 60) }
 let restAcc = StrainEngine.accumulate(samples: restSamples, restingHR: 58, maxHR: 190)
-check(restAcc.zones.reduce(0, +) == 0, "Ruhepuls-nahe Samples → keine aktive Zonenzeit")
-check(restAcc.restMin >= 9, "Ruhezeit wird erfasst (\(Int(restAcc.restMin)) min)")
+check(restAcc.zones.reduce(0, +) == 0, "Samples near resting HR → no active zone time")
+check(restAcc.restMin >= 9, "Rest time is recorded (\(Int(restAcc.restMin)) min)")
 let restResult = StrainEngine.dayStrain(
     record: { var r = DayRecord(date: "2026-07-17"); r.hrSamples = restSamples; return r }(),
     restingHR: 58,
     config: StrainConfig(age: 30)
 )
-check(restResult.strain < 1, "Reiner Ruhetag → Strain nahe 0")
-check(restResult.trackedMinutes >= 9, "Aufgezeichnete Zeit (Ruhe+aktiv) sichtbar")
+check(restResult.strain < 1, "Pure rest day → strain near 0")
+check(restResult.trackedMinutes >= 9, "Recorded time (rest+active) visible")
 
-// MARK: Demo-Daten + Engines Ende-zu-Ende
+// MARK: Demo data + engines end-to-end
 
-section("Demo-Daten & Engines")
+section("Demo data & engines")
 let demoDays = DemoData.generate(daysBack: 120, seed: 42)
-check(demoDays.count == 120, "120 Demo-Tage erzeugt")
+check(demoDays.count == 120, "120 demo days generated")
 let sortedKeys = demoDays.keys.sorted()
 
 let strainConfig = StrainConfig(age: 30)
@@ -274,35 +274,35 @@ for (key, record) in demoDays {
     let result = StrainEngine.dayStrain(record: record, restingHR: record.restingHR, config: strainConfig)
     strainByDay[key] = result.strain
     if result.strain < 0 || result.strain > 21 {
-        check(false, "Strain außerhalb 0–21 an \(key): \(result.strain)")
+        check(false, "Strain outside 0–21 on \(key): \(result.strain)")
     }
 }
-check(strainByDay.values.allSatisfy { $0 >= 0 && $0 <= 21 }, "Alle Tages-Strains in 0–21")
+check(strainByDay.values.allSatisfy { $0 >= 0 && $0 <= 21 }, "All daily strains in 0–21")
 let maxStrain = strainByDay.values.max() ?? 0
 let avgStrain = strainByDay.values.reduce(0, +) / Double(strainByDay.count)
-check(maxStrain > 10, "Harte Tage erreichen Strain > 10 (max \(String(format: "%.1f", maxStrain)))")
-check(avgStrain > 3 && avgStrain < 16, "Durchschnitts-Strain plausibel (\(String(format: "%.1f", avgStrain)))")
+check(maxStrain > 10, "Hard days reach strain > 10 (max \(String(format: "%.1f", maxStrain)))")
+check(avgStrain > 3 && avgStrain < 16, "Average strain plausible (\(String(format: "%.1f", avgStrain)))")
 
 let sleepConfig = SleepEngineConfig()
 let sleepAnalyses = SleepEngine.analyze(days: demoDays, config: sleepConfig, strainByDay: strainByDay)
-check(sleepAnalyses.count == 120, "Schlafanalyse für alle Tage")
+check(sleepAnalyses.count == 120, "Sleep analysis for all days")
 for (key, analysis) in sleepAnalyses {
     if analysis.needMinutes < 300 || analysis.needMinutes > 620 {
-        check(false, "Schlafbedarf außerhalb Plausibilität an \(key): \(analysis.needMinutes)")
+        check(false, "Sleep need outside plausibility on \(key): \(analysis.needMinutes)")
     }
     if analysis.debtAfterMinutes < 0 || analysis.debtAfterMinutes > sleepConfig.maxDebtMinutes {
-        check(false, "Schlafschuld außerhalb Grenzen an \(key)")
+        check(false, "Sleep debt outside limits on \(key)")
     }
     if let consistency = analysis.consistency, consistency < 0 || consistency > 100 {
-        check(false, "Konsistenz außerhalb 0–100 an \(key)")
+        check(false, "Consistency outside 0–100 on \(key)")
     }
     if analysis.performance < 0 || analysis.performance > 100 {
-        check(false, "Schlafperformance außerhalb 0–100 an \(key)")
+        check(false, "Sleep performance outside 0–100 on \(key)")
     }
 }
-check(true, "Bedarf/Schuld/Konsistenz/Performance in gültigen Bereichen")
+check(true, "Need/debt/consistency/performance in valid ranges")
 let withStages = sleepAnalyses.values.filter { !$0.stageMinutes.isEmpty }
-check(withStages.count == 120, "Alle Nächte haben Phasen-Minuten")
+check(withStages.count == 120, "All nights have stage minutes")
 
 var recoveryScores: [Int] = []
 for key in sortedKeys.suffix(60) {
@@ -317,36 +317,36 @@ for key in sortedKeys.suffix(60) {
     if let result {
         recoveryScores.append(result.score)
         if result.score < 1 || result.score > 99 {
-            check(false, "Recovery außerhalb 1–99 an \(key): \(result.score)")
+            check(false, "Recovery outside 1–99 on \(key): \(result.score)")
         }
         let expectedZone: RecoveryZone = result.score >= 67 ? .green : (result.score >= 34 ? .yellow : .red)
         if result.zone != expectedZone {
-            check(false, "Zonen-Mapping falsch an \(key)")
+            check(false, "Zone mapping wrong on \(key)")
         }
         let weightSum = result.components.reduce(0) { $0 + $1.weight }
         if abs(weightSum - 1) > 0.001 {
-            check(false, "Komponenten-Gewichte summieren nicht auf 1 an \(key)")
+            check(false, "Component weights don't sum to 1 on \(key)")
         }
     } else {
-        check(false, "Recovery nil trotz Daten an \(key)")
+        check(false, "Recovery nil despite data on \(key)")
     }
 }
-check(recoveryScores.count == 60, "Recovery für die letzten 60 Tage berechnet")
+check(recoveryScores.count == 60, "Recovery computed for the last 60 days")
 let recoveryRange = (recoveryScores.min() ?? 0)...(recoveryScores.max() ?? 0)
-check(recoveryRange.upperBound - recoveryRange.lowerBound >= 20, "Recovery streut realistisch (\(recoveryRange))")
+check(recoveryRange.upperBound - recoveryRange.lowerBound >= 20, "Recovery varies realistically (\(recoveryRange))")
 
 if let lastKey = sortedKeys.last, let lastRecord = demoDays[lastKey] {
     let history = sortedKeys.dropLast().compactMap { demoDays[$0] }
     let statuses = HealthMonitor.evaluate(today: lastRecord, history: Array(history))
-    check(statuses.count == HealthMetricKind.allCases.count, "Health-Monitor liefert alle Metriken")
-    check(statuses.allSatisfy { $0.state != .noData }, "Demo-Daten: keine Metrik ohne Daten")
+    check(statuses.count == HealthMetricKind.allCases.count, "Health Monitor returns all metrics")
+    check(statuses.allSatisfy { $0.state != .noData }, "Demo data: no metric without data")
     let rhrStatus = statuses.first { $0.kind == .restingHR }
-    check(rhrStatus?.lowerBound != nil && rhrStatus?.upperBound != nil, "Ruhepuls hat Baseline-Band")
+    check(rhrStatus?.lowerBound != nil && rhrStatus?.upperBound != nil, "Resting HR has a baseline band")
 }
 
-// MARK: Workout-Strain
+// MARK: Workout strain
 
-section("Workout-Strain")
+section("Workout strain")
 var workoutStrainChecked = false
 for key in sortedKeys.suffix(28) {
     guard let record = demoDays[key], let workout = record.workouts.first else { continue }
@@ -356,25 +356,25 @@ for key in sortedKeys.suffix(28) {
         break
     }
 }
-check(workoutStrainChecked, "Mindestens ein Workout-Strain berechnet")
+check(workoutStrainChecked, "At least one workout strain computed")
 
-// MARK: Alters-Engine (Pulse Alter)
+// MARK: Age engine (Pulse Age)
 
-section("Alters-Normen")
-// Inversion trifft die Stützstellen wieder.
-check(abs(AgeNorms.fitnessAge(vo2max: 48.0, sex: .male) - 25) < 1.0, "VO₂max 48 (m) → Fitness-Alter ≈ 25")
-check(abs(AgeNorms.fitnessAge(vo2max: 40.3, sex: .male) - 45) < 1.0, "VO₂max 40,3 (m) → Fitness-Alter ≈ 45")
-check(abs(AgeNorms.fitnessAge(vo2max: 30.9, sex: .female) - 45) < 1.0, "VO₂max 30,9 (w) → Fitness-Alter ≈ 45")
-// Monotonie: fitter ⇒ jünger.
-check(AgeNorms.fitnessAge(vo2max: 55, sex: .male) < AgeNorms.fitnessAge(vo2max: 35, sex: .male), "Höherer VO₂max ⇒ jüngeres Fitness-Alter")
+section("Age norms")
+// Inversion hits the anchor points again.
+check(abs(AgeNorms.fitnessAge(vo2max: 48.0, sex: .male) - 25) < 1.0, "VO₂max 48 (m) → fitness age ≈ 25")
+check(abs(AgeNorms.fitnessAge(vo2max: 40.3, sex: .male) - 45) < 1.0, "VO₂max 40.3 (m) → fitness age ≈ 45")
+check(abs(AgeNorms.fitnessAge(vo2max: 30.9, sex: .female) - 45) < 1.0, "VO₂max 30.9 (f) → fitness age ≈ 45")
+// Monotonicity: fitter ⇒ younger.
+check(AgeNorms.fitnessAge(vo2max: 55, sex: .male) < AgeNorms.fitnessAge(vo2max: 35, sex: .male), "Higher VO₂max ⇒ younger fitness age")
 let fitVeryHigh = AgeNorms.fitnessAge(vo2max: 65, sex: .male)
-check(fitVeryHigh >= 20 && fitVeryHigh <= 25, "Sehr hoher VO₂max wird auf ≥20 geklemmt (\(String(format: "%.0f", fitVeryHigh)))")
-check(abs(AgeNorms.hrvAge(rmssd: 46) - 35) < 1.5, "RMSSD 46 → HRV-Alter ≈ 35")
-check(AgeNorms.hrvAge(rmssd: 60) < AgeNorms.hrvAge(rmssd: 25), "Höhere HRV ⇒ jüngeres HRV-Alter")
-// Geschlecht verschiebt die Kurve.
-check(AgeNorms.vo2max(age: 40, sex: .male) > AgeNorms.vo2max(age: 40, sex: .female), "VO₂max-Norm: Männer > Frauen bei gleichem Alter")
+check(fitVeryHigh >= 20 && fitVeryHigh <= 25, "Very high VO₂max is clamped to ≥20 (\(String(format: "%.0f", fitVeryHigh)))")
+check(abs(AgeNorms.hrvAge(rmssd: 46) - 35) < 1.5, "RMSSD 46 → HRV age ≈ 35")
+check(AgeNorms.hrvAge(rmssd: 60) < AgeNorms.hrvAge(rmssd: 25), "Higher HRV ⇒ younger HRV age")
+// Sex shifts the curve.
+check(AgeNorms.vo2max(age: 40, sex: .male) > AgeNorms.vo2max(age: 40, sex: .female), "VO₂max norm: men > women at the same age")
 
-section("Alters-Engine")
+section("Age engine")
 let fitInputs = AgeInputs(
     chronoAge: 30, sex: .male,
     vo2maxValues: [52, 51, 53, 52, 54],
@@ -386,11 +386,11 @@ let fitInputs = AgeInputs(
 )
 let fitResult = AgeEngine.compute(dateKey: "2026-07-18", inputs: fitInputs)
 if let pulseAge = fitResult.pulseAge, let delta = fitResult.deltaYears {
-    check(pulseAge >= 15 && pulseAge <= 95, "Fitter 30-Jähriger: Pulse-Alter in Grenzen (\(String(format: "%.0f", pulseAge)))")
-    check(delta < 0, "Fitter Mensch ist biologisch jünger (Δ \(String(format: "%.0f", delta)))")
-    check(!fitResult.vo2maxEstimated, "Gemessener VO₂max wird bevorzugt (nicht geschätzt)")
+    check(pulseAge >= 15 && pulseAge <= 95, "Fit 30-year-old: Pulse Age within limits (\(String(format: "%.0f", pulseAge)))")
+    check(delta < 0, "Fit person is biologically younger (Δ \(String(format: "%.0f", delta)))")
+    check(!fitResult.vo2maxEstimated, "Measured VO₂max is preferred (not estimated)")
 } else {
-    check(false, "Pulse-Alter trotz voller Daten nil")
+    check(false, "Pulse Age nil despite full data")
 }
 
 let unfitInputs = AgeInputs(
@@ -403,10 +403,10 @@ let unfitInputs = AgeInputs(
     validDayCount: 30
 )
 let unfitResult = AgeEngine.compute(dateKey: "2026-07-18", inputs: unfitInputs)
-check((unfitResult.deltaYears ?? 0) > 0, "Unfitter Mensch ist biologisch älter (Δ \(String(format: "%.0f", unfitResult.deltaYears ?? 0)))")
-check((fitResult.pulseAge ?? 0) < (unfitResult.pulseAge ?? 0), "Fit < Unfit im Pulse-Alter")
+check((unfitResult.deltaYears ?? 0) > 0, "Unfit person is biologically older (Δ \(String(format: "%.0f", unfitResult.deltaYears ?? 0)))")
+check((fitResult.pulseAge ?? 0) < (unfitResult.pulseAge ?? 0), "Fit < unfit in Pulse Age")
 
-// Kalibrierungs-Gate: zu wenig Tage ⇒ kein Wert.
+// Calibration gate: too few days ⇒ no value.
 let earlyInputs = AgeInputs(
     chronoAge: 30, sex: .male,
     vo2maxValues: [50, 51, 52],
@@ -415,12 +415,12 @@ let earlyInputs = AgeInputs(
     validDayCount: 10
 )
 let earlyResult = AgeEngine.compute(dateKey: "2026-07-18", inputs: earlyInputs)
-check(earlyResult.pulseAge == nil, "Unter 14 gültigen Tagen: noch kein Pulse-Alter")
-check(earlyResult.calibrating, "Frühe Phase ist als kalibrierend markiert")
-check(earlyResult.calibrationHave == 10, "Kalibrierungsfortschritt zählt gültige Tage")
+check(earlyResult.pulseAge == nil, "Under 14 valid days: no Pulse Age yet")
+check(earlyResult.calibrating, "Early phase is marked as calibrating")
+check(earlyResult.calibrationHave == 10, "Calibration progress counts valid days")
 
-// Doppelzählungs-Schutz: ohne gemessenen VO₂max wird geschätzt UND der
-// Ruhepuls fließt dann NICHT zusätzlich als Korrektur ein.
+// Double-counting guard: without a measured VO₂max it is estimated AND
+// resting HR is then NOT added again as a correction.
 let estimatedInputs = AgeInputs(
     chronoAge: 40, sex: .male,
     vo2maxValues: [],
@@ -432,12 +432,12 @@ let estimatedInputs = AgeInputs(
     validDayCount: 30
 )
 let estimatedResult = AgeEngine.compute(dateKey: "2026-07-18", inputs: estimatedInputs)
-check(estimatedResult.vo2maxEstimated, "Ohne Messwert: VO₂max wird über HF-Ratio geschätzt")
-check(estimatedResult.vo2max != nil, "Geschätzter VO₂max ist vorhanden")
-check(!estimatedResult.components.contains { $0.key == "rhr" }, "Bei geschätztem VO₂max keine separate Ruhepuls-Korrektur (kein Doppelzählen)")
-check(estimatedResult.components.contains { $0.key == "fitness" }, "Fitness-Komponente auch im Schätz-Pfad vorhanden")
+check(estimatedResult.vo2maxEstimated, "Without a measurement: VO₂max is estimated via HR ratio")
+check(estimatedResult.vo2max != nil, "Estimated VO₂max is present")
+check(!estimatedResult.components.contains { $0.key == "rhr" }, "With estimated VO₂max no separate resting HR correction (no double counting)")
+check(estimatedResult.components.contains { $0.key == "fitness" }, "Fitness component also present in the estimate path")
 
-// Ende-zu-Ende auf Demo-Daten (gemessener VO₂max ~50).
+// End-to-end on demo data (measured VO₂max ~50).
 let ageWindow = sortedKeys.suffix(30).compactMap { demoDays[$0] }
 let ageSleepPerf = sortedKeys.suffix(30).compactMap { key -> Double? in
     guard let a = sleepAnalyses[key], a.hasData else { return nil }
@@ -453,16 +453,16 @@ let demoAgeInputs = AgeInputs(
     validDayCount: ageWindow.filter { $0.hrvRmssd != nil || $0.restingHR != nil }.count
 )
 let demoAgeResult = AgeEngine.compute(dateKey: sortedKeys.last!, inputs: demoAgeInputs)
-check(demoAgeResult.vo2max != nil, "Demo: VO₂max vorhanden")
+check(demoAgeResult.vo2max != nil, "Demo: VO₂max present")
 if let demoPulseAge = demoAgeResult.pulseAge {
-    check(demoPulseAge >= 15 && demoPulseAge <= 45, "Demo: Pulse-Alter plausibel (\(String(format: "%.0f", demoPulseAge)))")
+    check(demoPulseAge >= 15 && demoPulseAge <= 45, "Demo: Pulse Age plausible (\(String(format: "%.0f", demoPulseAge)))")
 } else {
-    check(false, "Demo: Pulse-Alter trotz 30 Tagen nil")
+    check(false, "Demo: Pulse Age nil despite 30 days")
 }
 
-// MARK: Journal & Korrelation
+// MARK: Journal & correlation
 
-section("Journal & Korrelation")
+section("Journal & correlation")
 var journalEntries: [String: JournalEntry] = [:]
 var journalRecovery: [String: Int] = [:]
 for i in 0..<12 {
@@ -474,19 +474,19 @@ for i in 0..<12 {
 }
 let insights = JournalEngine.insights(entries: journalEntries, recoveryByDay: journalRecovery)
 if let alc = insights.first(where: { $0.factor == .alcohol }) {
-    check(alc.delta < -15, "Alkohol senkt Folge-Recovery deutlich (Δ \(Int(alc.delta)))")
-    check(alc.daysWith >= 5 && alc.daysWithout >= 5, "Beide Gruppen über Whoop-Mindestfallzahl (5/5)")
-    check(alc.confidence == .solid, "Klarer, konsistenter Effekt → belastbar")
+    check(alc.delta < -15, "Alcohol clearly lowers next-day recovery (Δ \(Int(alc.delta)))")
+    check(alc.daysWith >= 5 && alc.daysWithout >= 5, "Both groups above Whoop minimum sample size (5/5)")
+    check(alc.confidence == .solid, "Clear, consistent effect → solid")
 } else {
-    check(false, "Alkohol-Insight fehlt trotz Daten")
+    check(false, "Alcohol insight missing despite data")
 }
-check(!insights.contains { $0.factor == .sick }, "Faktor ohne Einträge liefert kein Insight")
-check(JournalFactor.allCases.contains(.sex), "Sex ist als Journal-Faktor vorhanden")
+check(!insights.contains { $0.factor == .sick }, "Factor without entries yields no insight")
+check(JournalFactor.allCases.contains(.sex), "Sex is present as a journal factor")
 
-// Verrauschter Mini-Effekt → nur Tendenz, nicht belastbar.
+// Noisy tiny effect → only a trend, not solid.
 var noisyEntries: [String: JournalEntry] = [:]
 var noisyRecovery: [String: Int] = [:]
-// Gruppen-Mittel fast gleich (~68), aber hohe Streuung → kein echter Effekt.
+// Group means almost equal (~68), but high spread → no real effect.
 let noisyScores = [55, 58, 80, 77, 60, 63, 75, 74, 65, 70, 72, 68]
 for i in 0..<12 {
     let day = DayKey.addDays("2026-05-01", i)
@@ -494,28 +494,28 @@ for i in 0..<12 {
     noisyRecovery[DayKey.addDays("2026-05-01", i + 1)] = noisyScores[i]
 }
 if let noisy = JournalEngine.insights(entries: noisyEntries, recoveryByDay: noisyRecovery).first(where: { $0.factor == .lateMeal }) {
-    check(noisy.confidence == .emerging, "Kleiner Effekt in starkem Rauschen → nur Tendenz (Δ \(String(format: "%.1f", noisy.delta)), SE \(String(format: "%.1f", noisy.standardError)))")
+    check(noisy.confidence == .emerging, "Small effect in strong noise → only a trend (Δ \(String(format: "%.1f", noisy.delta)), SE \(String(format: "%.1f", noisy.standardError)))")
 } else {
-    check(false, "Rausch-Insight fehlt trotz 6/6 Tagen")
+    check(false, "Noise insight missing despite 6/6 days")
 }
 
-check(!JournalEngine.assessmentReady(recoveryByDay: journalRecovery), "Unter 28 Recovery-Tagen: Monats-Auswertung noch nicht bereit")
+check(!JournalEngine.assessmentReady(recoveryByDay: journalRecovery), "Under 28 recovery days: monthly assessment not ready yet")
 var manyRecoveries: [String: Int] = [:]
 for i in 0..<30 { manyRecoveries[DayKey.addDays("2026-05-01", i)] = 70 }
-check(JournalEngine.assessmentReady(recoveryByDay: manyRecoveries), "Ab 28 Recovery-Tagen: Monats-Auswertung bereit")
+check(JournalEngine.assessmentReady(recoveryByDay: manyRecoveries), "From 28 recovery days: monthly assessment ready")
 
 let tmpJournal = FileManager.default.temporaryDirectory.appendingPathComponent("pulse-journal-\(UUID().uuidString)")
 let jStore = JournalStore(directory: tmpJournal)
 jStore.toggle(.alcohol, on: "2026-07-18")
-check(jStore.isSet(.alcohol, on: "2026-07-18"), "Toggle setzt Faktor")
-check(jStore.save(), "Journal speichern erfolgreich")
+check(jStore.isSet(.alcohol, on: "2026-07-18"), "Toggle sets factor")
+check(jStore.save(), "Journal save successful")
 let jReload = JournalStore(directory: tmpJournal)
-check(jReload.isSet(.alcohol, on: "2026-07-18"), "Journal übersteht Roundtrip")
+check(jReload.isSet(.alcohol, on: "2026-07-18"), "Journal survives roundtrip")
 try? FileManager.default.removeItem(at: tmpJournal)
 
-// MARK: Schlafschuld (kein Zinseszins, Kappung pro Nacht)
+// MARK: Sleep debt (no compounding, cap per night)
 
-section("Schlafschuld")
+section("Sleep debt")
 func debtNight(_ key: String, minutes: Double) -> DayRecord {
     var r = DayRecord(date: key)
     guard let dayStart = DayKey.date(from: key) else { return r }
@@ -524,21 +524,21 @@ func debtNight(_ key: String, minutes: Double) -> DayRecord {
     r.sleepSessions = [SleepSession(id: "debt-\(key)", start: bed, end: wake, minutesAsleep: minutes, minutesAwake: 0)]
     return r
 }
-// Basis 456, kein Strain: 1. Nacht Katastrophe (60 min), dann exakt Basis, dann Basis+60.
+// Base 456, no strain: night 1 disaster (60 min), then exactly base, then base+60.
 let debtDays: [String: DayRecord] = [
     "2026-06-01": debtNight("2026-06-01", minutes: 60),
     "2026-06-02": debtNight("2026-06-02", minutes: 456),
     "2026-06-03": debtNight("2026-06-03", minutes: 516),
 ]
 let debtAnalyses = SleepEngine.analyze(days: debtDays, config: SleepEngineConfig())
-check(abs((debtAnalyses["2026-06-01"]?.debtAfterMinutes ?? -1) - 180) < 0.01, "Katastrophen-Nacht: Zuwachs pro Nacht auf 180 min gekappt (nicht sofort Maximum)")
-check(abs((debtAnalyses["2026-06-02"]?.debtAfterMinutes ?? -1) - 180) < 0.01, "Exakt Basis geschlafen → Schuld bleibt konstant (kein Zinseszins)")
-check(abs((debtAnalyses["2026-06-03"]?.debtAfterMinutes ?? -1) - 120) < 0.01, "60 min Überschlafen → Schuld sinkt um 60")
-check((debtAnalyses["2026-06-02"]?.needMinutes ?? 0) > 456, "Angezeigter Bedarf enthält weiterhin die Schuld-Rückzahlung")
+check(abs((debtAnalyses["2026-06-01"]?.debtAfterMinutes ?? -1) - 180) < 0.01, "Disaster night: increase per night capped at 180 min (not immediately max)")
+check(abs((debtAnalyses["2026-06-02"]?.debtAfterMinutes ?? -1) - 180) < 0.01, "Slept exactly base → debt stays constant (no compounding)")
+check(abs((debtAnalyses["2026-06-03"]?.debtAfterMinutes ?? -1) - 120) < 0.01, "60 min oversleep → debt drops by 60")
+check((debtAnalyses["2026-06-02"]?.needMinutes ?? 0) > 456, "Displayed need still includes debt repayment")
 
-// MARK: Recovery-Kalibrierung ohne HRV
+// MARK: Recovery calibration without HRV
 
-section("Recovery-Kalibrierung")
+section("Recovery calibration")
 func rhrOnly(_ key: String, rhr: Double) -> DayRecord {
     var r = DayRecord(date: key)
     r.restingHR = rhr
@@ -551,8 +551,8 @@ let noHrvResult = RecoveryEngine.compute(
     history: rhrHistory,
     sleepPerformance: 85
 )
-check(noHrvResult != nil, "Recovery ohne HRV berechenbar")
-check(noHrvResult?.calibrating == false, "Fehlendes HRV blockiert die Kalibrierung nicht (10 RHR-Nächte reichen)")
+check(noHrvResult != nil, "Recovery computable without HRV")
+check(noHrvResult?.calibrating == false, "Missing HRV does not block calibration (10 RHR nights suffice)")
 let shortHistory = Array(rhrHistory.prefix(3))
 let earlyNoHrv = RecoveryEngine.compute(
     dateKey: "2026-06-05",
@@ -560,144 +560,144 @@ let earlyNoHrv = RecoveryEngine.compute(
     history: shortHistory,
     sleepPerformance: 85
 )
-check(earlyNoHrv?.calibrating == true, "Unter 5 RHR-Nächten kalibriert weiterhin")
+check(earlyNoHrv?.calibrating == true, "Under 5 RHR nights still calibrating")
 
-// MARK: Zubettgeh-Empfehlung
+// MARK: Bedtime recommendation
 
-section("Zubettgeh-Empfehlung")
+section("Bedtime recommendation")
 var wakeComps = DateComponents()
 wakeComps.year = 2026; wakeComps.month = 6; wakeComps.day = 10; wakeComps.hour = 6; wakeComps.minute = 45
 let wake645 = Calendar.current.date(from: wakeComps)!
 let bedRec = SleepEngine.bedtimeRecommendation(
     currentDebtMinutes: 0, strainToday: 3, recentWakeTimes: [wake645, wake645, wake645]
 )
-check(abs(bedRec.projectedNeedMinutes - 456) < 5, "Ohne Schuld/Strain ≈ Basisbedarf (\(Int(bedRec.projectedNeedMinutes)))")
+check(abs(bedRec.projectedNeedMinutes - 456) < 5, "Without debt/strain ≈ base need (\(Int(bedRec.projectedNeedMinutes)))")
 if let bed = bedRec.recommendedBedtimeMinutes {
-    check(abs(bed - 1389) < 3, "Zubettgehzeit = Aufwachzeit − Bedarf (\(Int(bed)/60):\(String(format: "%02d", Int(bed)%60)))")
+    check(abs(bed - 1389) < 3, "Bedtime = wake time − need (\(Int(bed)/60):\(String(format: "%02d", Int(bed)%60)))")
 } else {
-    check(false, "Keine Bedtime trotz Aufwachzeiten")
+    check(false, "No bedtime despite wake times")
 }
 let bedRecHard = SleepEngine.bedtimeRecommendation(currentDebtMinutes: 120, strainToday: 16, recentWakeTimes: [wake645])
-check(bedRecHard.projectedNeedMinutes > bedRec.projectedNeedMinutes, "Schuld + harter Tag erhöhen den Bedarf")
+check(bedRecHard.projectedNeedMinutes > bedRec.projectedNeedMinutes, "Debt + hard day raise the need")
 
-// MARK: Health-Warnung
+// MARK: Health warning
 
-section("Health-Warnung")
+section("Health warning")
 func healthRecord(_ key: String, rhr: Double, resp: Double) -> DayRecord {
     var r = DayRecord(date: key)
     r.restingHR = rhr; r.respiratoryRate = resp; r.hrvRmssd = 60; r.spo2Avg = 97; r.bodyTemp = 34
     return r
 }
 var stableRecords = (0..<8).map { healthRecord(DayKey.addDays("2026-06-01", $0), rhr: 55, resp: 14) }
-check(HealthMonitor.alert(records: stableRecords) == nil, "Stabile Werte → keine Warnung")
+check(HealthMonitor.alert(records: stableRecords) == nil, "Stable values → no warning")
 stableRecords.append(healthRecord(DayKey.addDays("2026-06-01", 8), rhr: 70, resp: 18))
 if let multi = HealthMonitor.alert(records: stableRecords) {
-    check(multi.kinds.count >= 2, "Mehrere auffällige Werte → Warnung mit ≥2 Metriken")
+    check(multi.kinds.count >= 2, "Several abnormal values → warning with ≥2 metrics")
 } else {
-    check(false, "Warnung fehlt trotz zwei auffälliger Werte")
+    check(false, "Warning missing despite two abnormal values")
 }
 var streakRecords = (0..<7).map { healthRecord(DayKey.addDays("2026-07-01", $0), rhr: 55, resp: 14) }
 streakRecords.append(healthRecord(DayKey.addDays("2026-07-01", 7), rhr: 68, resp: 14))
 streakRecords.append(healthRecord(DayKey.addDays("2026-07-01", 8), rhr: 69, resp: 14))
 if let streak = HealthMonitor.alert(records: streakRecords) {
-    check(streak.kinds == [.restingHR], "Einzelne Metrik über 2 Tage → Streak-Warnung")
+    check(streak.kinds == [.restingHR], "Single metric over 2 days → streak warning")
 } else {
-    check(false, "Streak-Warnung fehlt")
+    check(false, "Streak warning missing")
 }
 
-// MARK: Sync-Helfer
+// MARK: Sync helpers
 
-section("Sync-Helfer")
+section("Sync helpers")
 let base = DayKey.date(from: "2026-07-17")!
 let rawSamples = (0..<120).map { i in
     SamplePoint(time: base.addingTimeInterval(Double(i) * 5), value: 60 + Double(i % 10))
 }
 let downsampled = SyncEngine.downsampleToMinutes(rawSamples)
-check(downsampled.count == 10, "600 s in 5-s-Auflösung → 10 Minuten-Buckets")
-check(downsampled.allSatisfy { $0.bpm >= 60 && $0.bpm <= 70 }, "Downsampling mittelt korrekt")
+check(downsampled.count == 10, "600 s at 5 s resolution → 10 minute buckets")
+check(downsampled.allSatisfy { $0.bpm >= 60 && $0.bpm <= 70 }, "Downsampling averages correctly")
 
 let nightSamples = [
     SamplePoint(time: DayKey.date(from: "2026-07-16")!.addingTimeInterval(23.5 * 3600), value: 55),
     SamplePoint(time: DayKey.date(from: "2026-07-17")!.addingTimeInterval(3 * 3600), value: 65),
 ]
 let grouped = SyncEngine.groupByNight(nightSamples)
-check(grouped["2026-07-17"]?.count == 2, "Nacht-Gruppierung fasst Abend + Morgen zusammen")
+check(grouped["2026-07-17"]?.count == 2, "Night grouping combines evening + morning")
 
-// Rate-Limit-Backoff (Google: 300 Requests/min/Nutzer).
-check(HealthAPIClient.retryDelay(attempt: 0, retryAfterHeader: "7") == 7, "Retry-After-Header wird respektiert")
-check(HealthAPIClient.retryDelay(attempt: 0, retryAfterHeader: nil) == 2, "Ohne Header: exponentiell ab 2 s")
-check(HealthAPIClient.retryDelay(attempt: 2, retryAfterHeader: nil) == 8, "Exponentieller Anstieg (Versuch 3 → 8 s)")
-check(HealthAPIClient.retryDelay(attempt: 9, retryAfterHeader: nil) == 60, "Backoff bei 60 s gekappt")
-check(HealthAPIClient.retryDelay(attempt: 0, retryAfterHeader: "120") == 60, "Retry-After bei 60 s gekappt")
+// Rate-limit backoff (Google: 300 requests/min/user).
+check(HealthAPIClient.retryDelay(attempt: 0, retryAfterHeader: "7") == 7, "Retry-After header is respected")
+check(HealthAPIClient.retryDelay(attempt: 0, retryAfterHeader: nil) == 2, "Without header: exponential from 2 s")
+check(HealthAPIClient.retryDelay(attempt: 2, retryAfterHeader: nil) == 8, "Exponential increase (attempt 3 → 8 s)")
+check(HealthAPIClient.retryDelay(attempt: 9, retryAfterHeader: nil) == 60, "Backoff capped at 60 s")
+check(HealthAPIClient.retryDelay(attempt: 0, retryAfterHeader: "120") == 60, "Retry-After capped at 60 s")
 
-// Inkrementeller HF-Sync: geprüfte Vergangenheitstage werden übersprungen.
+// Incremental HR sync: checked past days are skipped.
 let oldKey = DayKey.addDays(DayKey.today(), -3)
 var oldFull = DayRecord(date: oldKey)
 oldFull.hrSamples = [HRSample(t: DayKey.date(from: oldKey)!, bpm: 60)]
-oldFull.hrSyncedAt = Date() // nach Tagesende geprüft
-check(SyncEngine.isIntradayComplete(oldFull, dayKey: oldKey), "Alter Tag mit Daten, nach Tagesende geprüft → übersprungen")
+oldFull.hrSyncedAt = Date() // checked after end of day
+check(SyncEngine.isIntradayComplete(oldFull, dayKey: oldKey), "Old day with data, checked after end of day → skipped")
 var oldEmpty = DayRecord(date: oldKey)
-oldEmpty.hrSyncedAt = Date() // leer, aber geprüft
-check(SyncEngine.isIntradayComplete(oldEmpty, dayKey: oldKey), "Alter LEERER Tag, einmal geprüft → wird NICHT erneut geladen")
+oldEmpty.hrSyncedAt = Date() // empty, but checked
+check(SyncEngine.isIntradayComplete(oldEmpty, dayKey: oldKey), "Old EMPTY day, checked once → NOT loaded again")
 let yesterdayKey = DayKey.addDays(DayKey.today(), -1)
 var yest = DayRecord(date: yesterdayKey)
 yest.hrSamples = [HRSample(t: DayKey.date(from: yesterdayKey)!, bpm: 60)]
 yest.hrSyncedAt = Date()
-check(!SyncEngine.isIntradayComplete(yest, dayKey: yesterdayKey), "Gestern wird immer neu geladen (verspätete Uhr-Daten)")
+check(!SyncEngine.isIntradayComplete(yest, dayKey: yesterdayKey), "Yesterday is always reloaded (delayed watch data)")
 var todayDay = DayRecord(date: DayKey.today())
 todayDay.hrSamples = [HRSample(t: Date(), bpm: 60)]
 todayDay.hrSyncedAt = Date()
-check(!SyncEngine.isIntradayComplete(todayDay, dayKey: DayKey.today()), "Heute gilt nie als vollständig")
+check(!SyncEngine.isIntradayComplete(todayDay, dayKey: DayKey.today()), "Today never counts as complete")
 var oldUnstamped = DayRecord(date: oldKey)
 oldUnstamped.hrSamples = [HRSample(t: DayKey.date(from: oldKey)!, bpm: 60)]
-check(!SyncEngine.isIntradayComplete(oldUnstamped, dayKey: oldKey), "Ohne hrSyncedAt-Stempel wird geladen")
-check(!SyncEngine.isIntradayComplete(nil, dayKey: oldKey), "Fehlender Tag wird geladen")
+check(!SyncEngine.isIntradayComplete(oldUnstamped, dayKey: oldKey), "Without hrSyncedAt stamp it is loaded")
+check(!SyncEngine.isIntradayComplete(nil, dayKey: oldKey), "Missing day is loaded")
 
-// Spike-Filter: isolierte Artefakt-Spitze wird geglättet, Rampe bleibt.
+// Spike filter: isolated artifact spike is smoothed, ramp stays.
 let spikeSamples = [60.0, 62, 175, 61, 63].enumerated().map {
     HRSample(t: base.addingTimeInterval(Double($0.offset) * 60), bpm: $0.element)
 }
 let deSpiked = SyncEngine.removeSpikes(spikeSamples)
-check(deSpiked[2].bpm < 100, "Isolierte HF-Spitze (175) wird geglättet → \(Int(deSpiked[2].bpm))")
+check(deSpiked[2].bpm < 100, "Isolated HR spike (175) is smoothed → \(Int(deSpiked[2].bpm))")
 let rampSamples = [60.0, 105, 150, 175].enumerated().map {
     HRSample(t: base.addingTimeInterval(Double($0.offset) * 60), bpm: $0.element)
 }
-check(SyncEngine.removeSpikes(rampSamples).map(\.bpm) == rampSamples.map(\.bpm), "Monotoner Anstieg bleibt unangetastet")
+check(SyncEngine.removeSpikes(rampSamples).map(\.bpm) == rampSamples.map(\.bpm), "Monotonic increase stays untouched")
 
-// MARK: Store-Roundtrip
+// MARK: Store roundtrip
 
 section("MetricsStore")
 let tempDir = FileManager.default.temporaryDirectory
     .appendingPathComponent("pulse-selftest-\(UUID().uuidString)")
 let store = MetricsStore(directory: tempDir)
 store.merge(Array(demoDays.values))
-check(store.days.count == 120, "Store enthält 120 Tage")
-check(store.save(), "Speichern erfolgreich")
+check(store.days.count == 120, "Store contains 120 days")
+check(store.save(), "Save successful")
 
 let reloaded = MetricsStore(directory: tempDir)
-check(reloaded.days.count == 120, "Reload liefert 120 Tage")
+check(reloaded.days.count == 120, "Reload returns 120 days")
 if let lastKey = sortedKeys.last {
     let original = store.days[lastKey]
     let restored = reloaded.days[lastKey]
-    check(original?.hrvRmssd == restored?.hrvRmssd, "HRV übersteht Roundtrip")
-    // ISO-8601-Encoding rundet Dates auf ganze Sekunden → tolerant vergleichen.
+    check(original?.hrvRmssd == restored?.hrvRmssd, "HRV survives roundtrip")
+    // ISO-8601 encoding rounds dates to whole seconds → compare tolerantly.
     let hrStampDelta = abs((original?.hrSyncedAt?.timeIntervalSince1970 ?? -1) - (restored?.hrSyncedAt?.timeIntervalSince1970 ?? -2))
-    check(hrStampDelta < 1, "hrSyncedAt übersteht Roundtrip (Sekunden-Präzision)")
-    check(original?.sleepSessions.count == restored?.sleepSessions.count, "Schlaf-Sessions überstehen Roundtrip")
-    check((restored?.hrSamples.count ?? 0) > 0, "HR-Samples des letzten Tages erhalten")
+    check(hrStampDelta < 1, "hrSyncedAt survives roundtrip (second precision)")
+    check(original?.sleepSessions.count == restored?.sleepSessions.count, "Sleep sessions survive roundtrip")
+    check((restored?.hrSamples.count ?? 0) > 0, "HR samples of the last day preserved")
 }
 let historyCheck = reloaded.history(before: sortedKeys.last!, days: 30)
-check(historyCheck.count == 30, "history(before:) liefert 30 Tage")
+check(historyCheck.count == 30, "history(before:) returns 30 days")
 try? FileManager.default.removeItem(at: tempDir)
 
-// MARK: Ergebnis
+// MARK: Result
 
 print("")
 if failures.isEmpty {
-    print("ALLE TESTS BESTANDEN ✅")
+    print("ALL TESTS PASSED ✅")
     exit(0)
 } else {
-    print("\(failures.count) TEST(S) FEHLGESCHLAGEN ❌")
+    print("\(failures.count) TEST(S) FAILED ❌")
     for failure in failures {
         print("  – \(failure)")
     }

@@ -1,30 +1,30 @@
 import Foundation
 
-// MARK: - Alters-Normkurven
+// MARK: - Age reference curves
 
-/// Geschlechts- und altersabhängige Referenzkurven für den „Pulse Alter"-Score.
+/// Sex- and age-dependent reference curves for the "Pulse Age" score.
 ///
-/// Grundlage:
-/// - **VO₂max** (Rückgrat): FRIEND-Register, 50. Perzentil, Laufband
-///   (Kaminsky et al., Mayo Clin Proc 2015; ~10 % Rückgang pro Dekade).
-///   VO₂max ist der stärkste Einzelprädiktor der Gesamtmortalität
-///   (Mandsager et al., JAMA Netw Open 2018, 122 007 Personen).
-/// - **HRV (RMSSD)**: alterskorrelierter Rückgang ~1–3 %/Jahr ab Mitte 20
-///   (Übersicht Shaffer & Ginsberg 2017; Referenzwerte pro Dekade).
-/// - **Ruhepuls**: +10 S/min ≈ Hazard-Ratio 1,09 für Gesamtmortalität
-///   (Meta-Analyse Zhang et al., CMAJ 2016, 1,2 Mio. Personen).
+/// Basis:
+/// - **VO₂max** (backbone): FRIEND registry, 50th percentile, treadmill
+///   (Kaminsky et al., Mayo Clin Proc 2015; ~10 % decline per decade).
+///   VO₂max is the strongest single predictor of all-cause mortality
+///   (Mandsager et al., JAMA Netw Open 2018, 122,007 people).
+/// - **HRV (RMSSD)**: age-correlated decline ~1–3 %/year from the mid-20s
+///   (review Shaffer & Ginsberg 2017; reference values per decade).
+/// - **Resting HR**: +10 bpm ≈ hazard ratio 1.09 for all-cause mortality
+///   (meta-analysis Zhang et al., CMAJ 2016, 1.2 million people).
 ///
-/// Die Kurven sind stückweise linear zwischen Dekaden-Stützstellen und werden
-/// invertiert, um aus einem Messwert ein „Äquivalenzalter" zu bestimmen.
+/// The curves are piecewise linear between decade anchor points and are
+/// inverted to derive an "equivalent age" from a measured value.
 public enum AgeNorms {
-    /// VO₂max-Median (ml/kg/min) an den Dekaden-Mittelpunkten (FRIEND, Laufband).
+    /// VO₂max median (ml/kg/min) at decade midpoints (FRIEND, treadmill).
     static let vo2maxMale: [(age: Double, value: Double)] =
         [(25, 48.0), (35, 44.6), (45, 40.3), (55, 35.0), (65, 29.4), (75, 24.4)]
     static let vo2maxFemale: [(age: Double, value: Double)] =
         [(25, 37.6), (35, 34.1), (45, 30.9), (55, 27.1), (65, 22.6), (75, 18.3)]
 
-    /// RMSSD-Referenz (ms) an Alters-Mittelpunkten (geschlechtsübergreifend;
-    /// die Geschlechtsunterschiede sind hier klein und uneinheitlich).
+    /// RMSSD reference (ms) at age midpoints (across sexes;
+    /// sex differences are small and inconsistent here).
     static let rmssdRef: [(age: Double, value: Double)] =
         [(25, 60), (35, 46), (45, 36), (55, 29), (65, 23)]
 
@@ -37,7 +37,7 @@ public enum AgeNorms {
         }
     }
 
-    /// Referenz-Ruhepuls (S/min); Frauen liegen im Mittel leicht höher.
+    /// Reference resting HR (bpm); women are slightly higher on average.
     static func restingHRRef(_ sex: BiologicalSex) -> Double {
         switch sex {
         case .male: return 60
@@ -46,26 +46,26 @@ public enum AgeNorms {
         }
     }
 
-    /// VO₂max-Normwert für ein gegebenes Alter.
+    /// VO₂max norm value for a given age.
     public static func vo2max(age: Double, sex: BiologicalSex) -> Double {
         interpolate(vo2maxCurve(sex), at: age)
     }
 
-    /// Fitness-Alter: das Alter, bei dem dieser VO₂max dem Normmedian entspricht.
-    /// Untergrenze 20, weil die FRIEND-Referenz erst ab der Gruppe 20–29 beginnt
-    /// und VO₂max in der Jugend flach ist — tiefer zu extrapolieren wäre Willkür.
+    /// Fitness age: the age at which this VO₂max matches the norm median.
+    /// Lower bound 20, because the FRIEND reference only starts at the 20–29 group
+    /// and VO₂max is flat in youth — extrapolating lower would be arbitrary.
     public static func fitnessAge(vo2max: Double, sex: BiologicalSex) -> Double {
         invertDecreasing(vo2maxCurve(sex), value: vo2max, clampTo: 20...90)
     }
 
-    /// HRV-Äquivalenzalter aus dem nächtlichen RMSSD.
+    /// HRV equivalent age from overnight RMSSD.
     public static func hrvAge(rmssd: Double) -> Double {
         invertDecreasing(rmssdRef, value: rmssd, clampTo: 18...85)
     }
 
-    // MARK: - Stückweise-lineare Interpolation & Inversion
+    // MARK: - Piecewise-linear interpolation & inversion
 
-    /// Wert an Position `at`; extrapoliert an den Rändern mit der Randsteigung.
+    /// Value at position `at`; extrapolates at the edges with the edge slope.
     static func interpolate(_ points: [(age: Double, value: Double)], at x: Double) -> Double {
         guard let first = points.first, let last = points.last else { return 0 }
         if x <= first.age {
@@ -87,10 +87,10 @@ public enum AgeNorms {
         return a.value + t * (b.value - a.value)
     }
 
-    /// Invertiert eine monoton **fallende** Kurve (value → age).
-    /// Extrapoliert an den Rändern und klemmt auf `clampTo`.
+    /// Inverts a monotonically **decreasing** curve (value → age).
+    /// Extrapolates at the edges and clamps to `clampTo`.
     static func invertDecreasing(_ points: [(age: Double, value: Double)], value v: Double, clampTo range: ClosedRange<Double>) -> Double {
-        // Kurve fällt mit steigendem Alter: höherer Wert ⇒ jünger.
+        // Curve falls with increasing age: higher value ⇒ younger.
         if v >= points.first!.value {
             let p1 = points[0], p2 = points[1]
             return Stats.clamp(invLerp(p1, p2, v), range.lowerBound, range.upperBound)
@@ -113,25 +113,25 @@ public enum AgeNorms {
     }
 }
 
-// MARK: - Eingaben & Ergebnis
+// MARK: - Inputs & result
 
-/// Aggregierte Eingaben für die AgeEngine (bewusst vorverdichtet, damit die
-/// Engine rein und ohne Store testbar bleibt).
+/// Aggregated inputs for the AgeEngine (intentionally pre-condensed so the
+/// engine stays pure and testable without a store).
 public struct AgeInputs: Sendable {
     public var chronoAge: Int
     public var sex: BiologicalSex
-    /// Gemessene VO₂max-Tageswerte im Fenster (Google Health, nativ).
+    /// Measured VO₂max daily values in the window (Google Health, native).
     public var vo2maxValues: [Double]
     public var rmssdValues: [Double]
     public var restingHRValues: [Double]
-    /// Robuster beobachteter Maximalpuls (p97,5 der Intraday-HF) oder nil.
+    /// Robust observed max HR (p97.5 of intraday HR) or nil.
     public var observedMaxHR: Double?
     public var maxHROverride: Double?
-    /// Schlafperformance je Tag (0–100).
+    /// Sleep performance per day (0–100).
     public var sleepPerformances: [Double]
-    /// Schritte je Tag.
+    /// Steps per day.
     public var stepsValues: [Double]
-    /// Anzahl Tage im Fenster mit mind. einem Recovery-Messwert (HRV oder RHR).
+    /// Number of days in the window with at least one recovery value (HRV or RHR).
     public var validDayCount: Int
 
     public init(
@@ -161,15 +161,15 @@ public struct AgeInputs: Sendable {
 
 public struct AgeComponent: Sendable, Identifiable {
     public enum Kind: Sendable {
-        /// Eigenständiges Äquivalenzalter (VO₂max, HRV).
+        /// Standalone equivalent age (VO₂max, HRV).
         case equivalent
-        /// Gedeckelte Korrektur in Jahren (Ruhepuls, Schlaf, Aktivität).
+        /// Capped correction in years (resting HR, sleep, activity).
         case adjustment
     }
     public let key: String
     public let label: String
     public let detail: String
-    /// Vorzeichenbehaftete Jahre ggü. dem chronologischen Alter (negativ = jünger).
+    /// Signed years vs. chronological age (negative = younger).
     public let deltaYears: Double
     public let kind: Kind
 
@@ -179,11 +179,11 @@ public struct AgeComponent: Sendable, Identifiable {
 public struct AgeResult: Sendable {
     public let dateKey: String
     public let chronoAge: Int
-    /// Biologisches „Pulse Alter" in Jahren; nil, solange nicht genug Daten.
+    /// Biological "Pulse Age" in years; nil while there is not enough data.
     public let pulseAge: Double?
     public let components: [AgeComponent]
     public let vo2max: Double?
-    /// true, wenn VO₂max über die Herzfrequenz-Ratio geschätzt (nicht gemessen) wurde.
+    /// true if VO₂max was estimated via the heart-rate ratio (not measured).
     public let vo2maxEstimated: Bool
     public let fitnessAge: Double?
     public let calibrating: Bool
@@ -197,25 +197,25 @@ public struct AgeResult: Sendable {
 
 // MARK: - Engine
 
-/// Berechnet ein biologisches „Pulse Alter" aus den Wearable-Daten.
+/// Computes a biological "Pulse Age" from the wearable data.
 ///
-/// Aufbau (siehe [AgeNorms] für Quellen):
-/// 1. **Rückgrat = VO₂max → Fitness-Alter.** Bevorzugt der von Google Health
-///    gemessene Wert; fehlt er, wird er über die Herzfrequenz-Ratio-Methode
-///    geschätzt (Uth et al. 2004: `VO₂max ≈ 15,3 × HRmax/HRruhe`).
-/// 2. **HRV → HRV-Alter** als zweites Äquivalenzalter.
-/// 3. Beide werden gewichtet gemittelt (VO₂max 0,7 / HRV 0,3).
-/// 4. **Gedeckelte Korrekturen** aus Ruhepuls, Schlaf und Aktivität (Summe ±5 J.).
+/// Structure (see [AgeNorms] for sources):
+/// 1. **Backbone = VO₂max → fitness age.** Prefers the value measured by
+///    Google Health; if missing, it is estimated via the heart-rate ratio method
+///    (Uth et al. 2004: `VO₂max ≈ 15.3 × HRmax/HRrest`).
+/// 2. **HRV → HRV age** as a second equivalent age.
+/// 3. Both are averaged with weights (VO₂max 0.7 / HRV 0.3).
+/// 4. **Capped corrections** from resting HR, sleep and activity (sum ±5 y).
 ///
-/// Wichtig gegen Doppelzählung: Der Ruhepuls-Zuschlag entfällt, wenn VO₂max
-/// **geschätzt** wurde — dann steckt der Ruhepuls bereits im Rückgrat.
+/// Important against double counting: the resting HR adjustment is dropped when VO₂max
+/// was **estimated** — resting HR is then already part of the backbone.
 public enum AgeEngine {
     public static let fitnessWeight = 0.7
     public static let hrvWeight = 0.3
     public static let calibrationNeed = 30
     static let minProvisionalDays = 14
 
-    /// Uth-Proportionalitätsfaktor der Herzfrequenz-Ratio-Methode.
+    /// Uth proportionality factor of the heart-rate ratio method.
     static let uthFactor = 15.3
 
     public static func compute(dateKey: String, inputs: AgeInputs, language: PulseLanguage = .de) -> AgeResult {
@@ -223,14 +223,14 @@ public enum AgeEngine {
         let chrono = Double(inputs.chronoAge)
         let have = min(inputs.validDayCount, calibrationNeed)
 
-        // --- Rückgrat: VO₂max bestimmen (gemessen ODER geschätzt) ---
+        // --- Backbone: determine VO₂max (measured OR estimated) ---
         var vo2: Double?
         var vo2Estimated = false
 
         if let measured = median(inputs.vo2maxValues), inputs.vo2maxValues.count >= 3 {
             vo2 = measured
         } else if let rhr = median(inputs.restingHRValues), inputs.restingHRValues.count >= 5 {
-            // Geschätzt: robuster Maxpuls (beobachtet) oder Nes/HUNT-Formel.
+            // Estimated: robust max HR (observed) or the Nes/HUNT formula.
             let hrMax = inputs.maxHROverride
                 ?? trustworthyMaxHR(inputs.observedMaxHR)
                 ?? (211 - 0.64 * chrono)
@@ -242,13 +242,13 @@ public enum AgeEngine {
 
         let fitnessAge = vo2.map { AgeNorms.fitnessAge(vo2max: $0, sex: inputs.sex) }
 
-        // --- HRV-Alter (zweites Äquivalenzalter) ---
+        // --- HRV age (second equivalent age) ---
         var hrvAge: Double?
         if inputs.rmssdValues.count >= 7, let rmssd = median(inputs.rmssdValues) {
             hrvAge = AgeNorms.hrvAge(rmssd: rmssd)
         }
 
-        // --- Kern = gewichtetes Mittel der verfügbaren Äquivalenzalter ---
+        // --- Core = weighted mean of the available equivalent ages ---
         var core: Double?
         var weightPairs: [(Double, Double)] = []
         if let fitnessAge { weightPairs.append((fitnessAge, fitnessWeight)) }
@@ -258,26 +258,26 @@ public enum AgeEngine {
             core = weightPairs.reduce(0) { $0 + $1.0 * $1.1 } / wSum
         }
 
-        // --- Gedeckelte Korrekturen ---
-        // Ruhepuls: nur wenn VO₂max GEMESSEN wurde (sonst Doppelzählung, weil die
-        // Schätzung den Ruhepuls im Nenner trägt).
+        // --- Capped corrections ---
+        // Resting HR: only if VO₂max was MEASURED (otherwise double counting, because
+        // the estimate carries resting HR in the denominator).
         var rhrDelta: Double?
         let allowRHR = !vo2Estimated
         if allowRHR, let rhr = median(inputs.restingHRValues), inputs.restingHRValues.count >= 5 {
             let ref = AgeNorms.restingHRRef(inputs.sex)
-            // +10 S/min ≈ 2,5 „Alterungsjahre" (konservative Heuristik aus der
-            // Mortalitäts-HR 1,09/10 bpm), gedeckelt auf ±3 Jahre.
+            // +10 bpm ≈ 2.5 "aging years" (conservative heuristic from the
+            // mortality HR 1.09/10 bpm), capped to ±3 years.
             rhrDelta = Stats.clamp((rhr - ref) / 10 * 2.5, -3, 3)
         }
 
-        // Schlaf: mittlere Performance ggü. ~78 % Zielkorridor, gedeckelt ±1,5.
+        // Sleep: mean performance vs. ~78 % target corridor, capped ±1.5.
         var sleepDelta: Double?
         if !inputs.sleepPerformances.isEmpty {
             let perf = Stats.mean(inputs.sleepPerformances)
             sleepDelta = Stats.clamp((78 - perf) / 12, -1.5, 1.5)
         }
 
-        // Aktivität: Schrittschnitt ggü. ~8000/Tag, gedeckelt ±1,5.
+        // Activity: average steps vs. ~8000/day, capped ±1.5.
         var activityDelta: Double?
         if !inputs.stepsValues.isEmpty {
             let steps = Stats.mean(inputs.stepsValues)
@@ -285,7 +285,7 @@ public enum AgeEngine {
             activityDelta = Stats.clamp((1 - ratio) * 1.5, -1.5, 1.5)
         }
 
-        // --- Kalibrierung & Ergebnis-Zusammenbau ---
+        // --- Calibration & result assembly ---
         let backboneResolvable = (vo2 != nil)
         let hasEnoughDays = inputs.validDayCount >= minProvisionalDays
         let calibrating = inputs.validDayCount < calibrationNeed || !backboneResolvable
@@ -339,7 +339,7 @@ public enum AgeEngine {
             ))
         }
 
-        // Pulse-Alter nur zeigen, wenn Rückgrat auflösbar UND genug Tage.
+        // Only show Pulse Age if the backbone is resolvable AND there are enough days.
         var pulseAge: Double?
         if backboneResolvable, hasEnoughDays, let core {
             let offsets = Stats.clamp(
@@ -363,9 +363,9 @@ public enum AgeEngine {
         )
     }
 
-    // MARK: - Helfer
+    // MARK: - Helpers
 
-    /// Beobachteter Maxpuls nur vertrauen, wenn er physiologisch plausibel ist.
+    /// Only trust the observed max HR if it is physiologically plausible.
     static func trustworthyMaxHR(_ value: Double?) -> Double? {
         guard let value, value >= 150, value <= 220 else { return nil }
         return value

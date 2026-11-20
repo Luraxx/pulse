@@ -29,7 +29,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Sprache
+    // MARK: - Language
 
     private var languageSection: some View {
         @Bindable var model = model
@@ -44,7 +44,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Verbindung
+    // MARK: - Connection
 
     private var connectionSection: some View {
         Section {
@@ -114,7 +114,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Benachrichtigungen
+    // MARK: - Notifications
 
     private var notificationsSection: some View {
         Section {
@@ -129,7 +129,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Berechnung
+    // MARK: - Calculation
 
     private func calculationSection(model: Bindable<AppModel>) -> some View {
         Section {
@@ -180,7 +180,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Daten
+    // MARK: - Data
 
     private var dataSection: some View {
         Section {
@@ -203,7 +203,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Über
+    // MARK: - About
 
     private var aboutSection: some View {
         Section(model.loc("Über", "About")) {
@@ -216,7 +216,7 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Sync-Protokoll
+// MARK: - Sync log
 
 struct SyncLogView: View {
     @Environment(AppModel.self) private var model

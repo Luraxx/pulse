@@ -68,7 +68,7 @@ struct AgeDetailView: View {
         }
     }
 
-    // MARK: - Aufschlüsselung
+    // MARK: - Breakdown
 
     private func breakdownCard(_ result: AgeResult) -> some View {
         SectionCard(model.loc("So setzt es sich zusammen", "How it is composed")) {
@@ -145,7 +145,7 @@ struct AgeDetailView: View {
         }
     }
 
-    // MARK: - Methodik
+    // MARK: - Methodology
 
     private var methodCard: some View {
         SectionCard(model.loc("Wie wird das gerechnet?", "How is this calculated?")) {

@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-/// Minimaler Keychain-Wrapper für Token-Speicherung.
+/// Minimal Keychain wrapper for token storage.
 public enum Keychain {
     @discardableResult
     public static func save(_ data: Data, service: String, account: String) -> Bool {

@@ -1,9 +1,9 @@
 import Foundation
 
-/// Tolerante Extraktion aus JSON-Objekten der Google Health API.
-/// Die API ist neu (v4, Mai 2026) und einzelne Feldnamen sind nicht vollständig
-/// dokumentiert — deshalb wird über Kandidaten-Keys in Prioritätsreihenfolge
-/// gesucht statt strikt zu dekodieren.
+/// Tolerant extraction from Google Health API JSON objects.
+/// The API is new (v4, May 2026) and some field names are not fully
+/// documented — so it searches candidate keys in priority order
+/// instead of decoding strictly.
 public enum JSONExtract {
     private static let isoWithFraction: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -22,7 +22,7 @@ public enum JSONExtract {
         if let date = isoPlain.date(from: string) ?? isoWithFraction.date(from: string) {
             return date
         }
-        // Reines Datum "yyyy-MM-dd"
+        // Plain date "yyyy-MM-dd"
         if string.count == 10 {
             return DayKey.date(from: string)
         }
@@ -37,7 +37,7 @@ public enum JSONExtract {
         return nil
     }
 
-    /// Google-CivilDate-Objekte ({year, month, day}) oder Strings → "yyyy-MM-dd".
+    /// Google CivilDate objects ({year, month, day}) or strings → "yyyy-MM-dd".
     public static func civilDateString(from any: Any?) -> String? {
         if let s = any as? String, s.count >= 10 {
             return String(s.prefix(10))
@@ -51,8 +51,8 @@ public enum JSONExtract {
         return nil
     }
 
-    /// Sucht den ersten Key aus `keys` (Prioritätsreihenfolge) per
-    /// Breitensuche bis Tiefe 4 und liefert den Double-Wert.
+    /// Finds the first key from `keys` (priority order) via
+    /// breadth-first search up to depth 4 and returns the Double value.
     public static func firstDouble(in object: Any, keys: [String]) -> Double? {
         for key in keys {
             if let value = search(object, key: key, depth: 4), let d = double(from: value) {
@@ -81,7 +81,7 @@ public enum JSONExtract {
         return nil
     }
 
-    /// Breitensuche nach einem Key in verschachtelten Dictionaries/Arrays.
+    /// Breadth-first search for a key in nested dictionaries/arrays.
     private static func search(_ object: Any, key: String, depth: Int) -> Any? {
         var queue: [(Any, Int)] = [(object, 0)]
         while !queue.isEmpty {

@@ -1,9 +1,9 @@
 import Foundation
 import CryptoKit
 
-// MARK: - Konfiguration
+// MARK: - Configuration
 
-/// Google-OAuth-Konfiguration für einen iOS-Client (keine Client-Secret nötig).
+/// Google OAuth configuration for an iOS client (no client secret needed).
 public struct GoogleOAuthConfig: Sendable {
     public var clientID: String
 
@@ -11,7 +11,7 @@ public struct GoogleOAuthConfig: Sendable {
         self.clientID = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// iOS-OAuth-Clients nutzen das umgedrehte Client-ID-Schema als Redirect:
+    /// iOS OAuth clients use the reversed client ID scheme as the redirect:
     /// "123-abc.apps.googleusercontent.com" → "com.googleusercontent.apps.123-abc"
     public var reversedClientScheme: String? {
         let suffix = ".apps.googleusercontent.com"
@@ -30,7 +30,7 @@ public struct GoogleOAuthConfig: Sendable {
     }
 }
 
-/// OAuth-Scopes der Google Health API (Read-only).
+/// OAuth scopes of the Google Health API (read-only).
 public enum HealthScopes {
     public static let read: [String] = [
         "https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly",
@@ -106,23 +106,23 @@ public enum AuthError: Error, LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .notConnected:
-            return "Nicht mit Google verbunden."
+            return "Not connected to Google."
         case .invalidClientID:
-            return "Ungültige Client-ID. Erwartet wird eine iOS-Client-ID der Form …apps.googleusercontent.com."
+            return "Invalid client ID. Expected an iOS client ID of the form …apps.googleusercontent.com."
         case .exchangeFailed(let message):
-            return "Token-Austausch fehlgeschlagen: \(message)"
+            return "Token exchange failed: \(message)"
         case .refreshExpired:
-            return "Die Google-Anmeldung ist abgelaufen (im Testing-Modus laufen Refresh-Tokens nach 7 Tagen ab). Bitte neu verbinden."
+            return "The Google sign-in has expired (in testing mode refresh tokens expire after 7 days). Please reconnect."
         case .network(let message):
-            return "Netzwerkfehler: \(message)"
+            return "Network error: \(message)"
         }
     }
 }
 
-// MARK: - Auth-Engine
+// MARK: - Auth engine
 
-/// Verwaltet Google-OAuth-Tokens (Authorization Code + PKCE, ohne Client-Secret)
-/// inklusive Keychain-Persistenz und automatischem Refresh.
+/// Manages Google OAuth tokens (authorization code + PKCE, without client secret)
+/// including Keychain persistence and automatic refresh.
 public final class GoogleAuth: @unchecked Sendable {
     public static let keychainService = "net.dehlwes.pulse.oauth"
     private let keychainAccount = "google"
@@ -151,7 +151,7 @@ public final class GoogleAuth: @unchecked Sendable {
         tokens != nil
     }
 
-    // MARK: Autorisierungs-URL
+    // MARK: Authorization URL
 
     public func authorizationURL(config: GoogleOAuthConfig, pkce: PKCE, state: String) -> URL? {
         guard let redirect = config.redirectURI else { return nil }
@@ -178,7 +178,7 @@ public final class GoogleAuth: @unchecked Sendable {
         return items.first(where: { $0.name == "code" })?.value
     }
 
-    // MARK: Token-Flüsse
+    // MARK: Token flows
 
     @discardableResult
     public func exchange(code: String, pkce: PKCE, config: GoogleOAuthConfig) async throws -> TokenSet {
@@ -199,7 +199,7 @@ public final class GoogleAuth: @unchecked Sendable {
         return tokens
     }
 
-    /// Liefert ein gültiges Access-Token, refresht bei Bedarf.
+    /// Returns a valid access token, refreshing if needed.
     public func validAccessToken(config: GoogleOAuthConfig) async throws -> String {
         guard let current = tokens else { throw AuthError.notConnected }
         if current.isExpiringSoon {
@@ -236,7 +236,7 @@ public final class GoogleAuth: @unchecked Sendable {
         }
     }
 
-    // MARK: Intern
+    // MARK: Internal
 
     private static let decoder: JSONDecoder = {
         let d = JSONDecoder()
@@ -273,7 +273,7 @@ public final class GoogleAuth: @unchecked Sendable {
 
     private func tokenRequest(_ params: [String: String]) async throws -> TokenResponse {
         guard let url = URL(string: "https://oauth2.googleapis.com/token") else {
-            throw AuthError.network("Ungültige Token-URL")
+            throw AuthError.network("Invalid token URL")
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -289,7 +289,7 @@ public final class GoogleAuth: @unchecked Sendable {
         }
 
         guard let http = response as? HTTPURLResponse else {
-            throw AuthError.network("Keine HTTP-Antwort")
+            throw AuthError.network("No HTTP response")
         }
         guard (200..<300).contains(http.statusCode) else {
             let body = String(data: data, encoding: .utf8) ?? ""
@@ -301,7 +301,7 @@ public final class GoogleAuth: @unchecked Sendable {
         do {
             return try JSONDecoder().decode(TokenResponse.self, from: data)
         } catch {
-            throw AuthError.exchangeFailed("Antwort nicht lesbar: \(error.localizedDescription)")
+            throw AuthError.exchangeFailed("Response not readable: \(error.localizedDescription)")
         }
     }
 

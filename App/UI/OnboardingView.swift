@@ -47,7 +47,7 @@ struct OnboardingView: View {
                 .font(.system(size: 42, weight: .bold, design: .rounded))
                 .foregroundStyle(Theme.textPrimary)
 
-            // Sprachwahl direkt beim Einrichten (auch später unter Mehr änderbar).
+            // Language choice right during setup (can also be changed later under More).
             Picker("Sprache / Language", selection: Binding(
                 get: { model.language },
                 set: { model.language = $0 }
@@ -113,8 +113,8 @@ struct OnboardingView: View {
     }
 }
 
-/// Schritt 2 des Onboardings: Profil (Alter, Geschlecht, Größe, Gewicht),
-/// danach Verbindung oder Demo. Dieselben Felder liegen auch unter „Mehr".
+/// Onboarding step 2: profile (age, sex, height, weight),
+/// then connection or demo. The same fields are also under "More".
 struct ProfileSetupView: View {
     @Environment(AppModel.self) private var model
     var onConnect: () -> Void
@@ -177,7 +177,7 @@ struct ProfileSetupView: View {
     }
 }
 
-/// Wiederverwendbare Profil-Felder (Onboarding + Einstellungen).
+/// Reusable profile fields (onboarding + settings).
 struct ProfileFields: View {
     @Bindable var model: AppModel
 
@@ -217,7 +217,7 @@ struct ProfileFields: View {
     }
 }
 
-/// Verbindungs-Sheet: Client-ID eingeben + OAuth-Flow starten.
+/// Connection sheet: enter client ID + start the OAuth flow.
 struct ConnectSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -238,8 +238,8 @@ struct ConnectSheet: View {
                     Text(model.loc("Einmalig nötig: In der Google Cloud Console die **Google Health API** aktivieren, einen OAuth-Client vom Typ **iOS** anlegen und die Client-ID hier einfügen. Schritt-für-Schritt-Anleitung in der README des Projekts.", "One-time setup: enable the **Google Health API** in the Google Cloud Console, create an **iOS** OAuth client and paste the client ID here. Step-by-step guide in the project README."))
                 }
 
-                // Nach Sideloading weicht die Bundle-ID vom Standard ab (das Tool hängt
-                // die Team-ID an), der iOS-Client muss aber genau diese bekommen.
+                // After sideloading the bundle ID differs from the default (the tool appends
+                // the team ID), but the iOS client must get exactly this one.
                 Section {
                     Text(Bundle.main.bundleIdentifier ?? "–")
                         .font(.footnote.monospaced())

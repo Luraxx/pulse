@@ -1,8 +1,8 @@
 // swift-tools-version:5.9
-// Macht die plattformneutrale Core-Schicht als Bibliothek `PulseCore`
-// verfügbar – genutzt vom Self-Test-Paket (../SelfTest). Die iOS-App bindet
-// dieselben Quellen direkt über project.yml (xcodegen) ein und ignoriert
-// dieses Manifest.
+// Exposes the platform-neutral Core layer as the library `PulseCore`
+// – used by the self-test package (../SelfTest). The iOS app includes
+// the same sources directly via project.yml (xcodegen) and ignores
+// this manifest.
 import PackageDescription
 
 let package = Package(

@@ -1,7 +1,7 @@
 import Foundation
 
-/// App-Sprache. Bewusst eine leichte eigene Schicht statt System-Lokalisierung:
-/// der Nutzer schaltet in der App um, die Änderung wirkt sofort (kein Neustart).
+/// App language. Intentionally a lightweight custom layer instead of system localization:
+/// the user switches in the app and the change applies immediately (no restart).
 public enum PulseLanguage: String, Codable, CaseIterable, Sendable, Identifiable {
     case de
     case en
@@ -15,12 +15,12 @@ public enum PulseLanguage: String, Codable, CaseIterable, Sendable, Identifiable
         }
     }
 
-    /// Systemsprache als sinnvoller Erststart-Default.
+    /// System language as a sensible first-launch default.
     public static var systemDefault: PulseLanguage {
         (Locale.preferredLanguages.first ?? "en").hasPrefix("de") ? .de : .en
     }
 
-    /// Kürzel für Formatierungs-Locales.
+    /// Identifier for formatting locales.
     public var localeIdentifier: String {
         switch self {
         case .de: return "de_DE"
@@ -29,7 +29,7 @@ public enum PulseLanguage: String, Codable, CaseIterable, Sendable, Identifiable
     }
 }
 
-// MARK: - Lokalisierte Labels der Core-Typen
+// MARK: - Localized labels of the Core types
 
 public extension JournalFactor {
     func label(_ lang: PulseLanguage) -> String {
@@ -103,12 +103,12 @@ public extension StrainEngine {
 }
 
 public extension HealthMonitor {
-    /// Lokalisierte Variante der Warnung (die parameterlose bleibt deutsch).
+    /// Localized variant of the warning (the parameterless one stays German).
     static func alert(records: [DayRecord], lookback: Int = 3, language: PulseLanguage) -> HealthAlert? {
         guard let base = alert(records: records, lookback: lookback) else { return nil }
         guard language == .en else { return base }
 
-        // Meldung auf Englisch neu formulieren (gleiche Regeln wie im Kern).
+        // Rephrase the message in English (same rules as in the core).
         if base.kinds.count >= 2 {
             let names = base.kinds.map { $0.label(.en) }.sorted().joined(separator: ", ")
             return HealthAlert(
@@ -123,7 +123,7 @@ public extension HealthMonitor {
             case .hrv, .spo2: direction = "low"
             case .restingHR, .respiratoryRate, .bodyTemp: direction = "elevated"
             }
-            // Streak-Länge steckt im deutschen Text; robust: generisch formulieren.
+            // Streak length is embedded in the German text; robust: phrase it generically.
             return HealthAlert(
                 kinds: base.kinds,
                 message: "\(kind.label(.en)) has been \(direction) for 2+ days – prioritize recovery.",

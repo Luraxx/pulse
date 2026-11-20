@@ -3,7 +3,7 @@ import Foundation
 public struct StrainConfig: Sendable {
     public var age: Int
     public var maxHROverride: Double?
-    /// Zeitkonstante der logarithmischen 0–21-Skala.
+    /// Time constant of the logarithmic 0–21 scale.
     public var tau: Double
 
     public init(age: Int = 30, maxHROverride: Double? = nil, tau: Double = 450) {
@@ -12,20 +12,20 @@ public struct StrainConfig: Sendable {
         self.tau = tau
     }
 
-    /// Maximale Herzfrequenz: Override oder Tanaka-Formel (208 − 0,7 × Alter).
+    /// Maximum heart rate: override or Tanaka formula (208 − 0.7 × age).
     public var maxHR: Double {
         maxHROverride ?? (208 - 0.7 * Double(age))
     }
 }
 
 public struct StrainResult: Sendable {
-    /// Strain auf der Whoop-artigen 0–21-Skala.
+    /// Strain on the Whoop-like 0–21 scale.
     public let strain: Double
     public let rawLoad: Double
-    /// Minuten je Intensitätszone (Index 0 = sehr leicht … 5 = maximal).
+    /// Minutes per intensity zone (index 0 = very light … 5 = maximal).
     public let zoneMinutes: [Double]
-    /// Minuten unterhalb der ersten Zone (Ruhe/Alltag) — zählt nicht zum Strain,
-    /// macht aber die aufgezeichnete Gesamtzeit sichtbar.
+    /// Minutes below the first zone (rest/everyday) — does not count toward strain,
+    /// but makes the total recorded time visible.
     public let restMinutes: Double
     public let avgHR: Double?
     public let peakHR: Double?
@@ -39,7 +39,7 @@ public struct StrainResult: Sendable {
         self.peakHR = peakHR
     }
 
-    /// Aufgezeichnete Gesamtzeit mit gültigem Puls (Ruhe + aktive Zonen), in Minuten.
+    /// Total recorded time with a valid heart rate (rest + active zones), in minutes.
     public var trackedMinutes: Double {
         restMinutes + zoneMinutes.reduce(0, +)
     }
@@ -47,12 +47,12 @@ public struct StrainResult: Sendable {
     public static let empty = StrainResult(strain: 0, rawLoad: 0, zoneMinutes: Array(repeating: 0, count: 6), avgHR: nil, peakHR: nil)
 }
 
-/// Kardiovaskuläre Belastung nach dem TRIMP-Prinzip:
-/// Zeit in Herzfrequenz-Reserve-Zonen wird gewichtet aufsummiert und
-/// logarithmisch auf 0–21 abgebildet (wie die Whoop-Strain-Skala, die nach
-/// oben immer schwerer zu steigern ist).
+/// Cardiovascular load based on the TRIMP principle:
+/// time in heart-rate-reserve zones is summed with weights and
+/// mapped logarithmically to 0–21 (like the Whoop strain scale, which
+/// gets harder and harder to raise toward the top).
 public enum StrainEngine {
-    /// Untergrenzen der Zonen als Anteil der Herzfrequenz-Reserve (Karvonen).
+    /// Lower bounds of the zones as a fraction of heart-rate reserve (Karvonen).
     public static let zoneLowerBounds: [Double] = [0.20, 0.30, 0.45, 0.60, 0.72, 0.85]
     public static let zoneWeights: [Double] = [0.5, 1.0, 2.5, 5.0, 8.0, 11.0]
     public static let zoneLabels: [String] = ["Sehr leicht", "Leicht", "Moderat", "Fordernd", "Hart", "Maximal"]
@@ -62,11 +62,11 @@ public enum StrainEngine {
         return 21 * (1 - exp(-raw / tau))
     }
 
-    /// Tages-Belastungsziel aus der morgendlichen Recovery (wie Whoops
-    /// „Strain Target": der Strich auf dem Ring). Kalibriert an Whoops
-    /// publizierten Bereichen — Training bei grüner Recovery ~14–18,
-    /// lockere Tage ~10–14, rote Recovery deutlich darunter.
-    /// Transparent linear: 0,2 × Recovery, gedeckelt auf 3…18,5.
+    /// Daily strain target from the morning recovery (like Whoop's
+    /// "Strain Target": the tick on the ring). Calibrated to Whoop's
+    /// published ranges — training on green recovery ~14–18,
+    /// easy days ~10–14, red recovery well below.
+    /// Transparently linear: 0.2 × recovery, capped to 3…18.5.
     public static func targetStrain(forRecovery recovery: Int) -> Double {
         Stats.clamp(0.2 * Double(recovery), 3, 18.5)
     }
@@ -79,7 +79,7 @@ public enum StrainEngine {
         return index
     }
 
-    /// Summiert die gewichtete Belastung über HR-Samples (Minutenauflösung).
+    /// Sums the weighted load over HR samples (minute resolution).
     public static func accumulate(
         samples: [HRSample],
         restingHR: Double,
@@ -108,7 +108,7 @@ public enum StrainEngine {
 
             let fraction = (sample.bpm - restingHR) / (maxHR - restingHR)
             guard let zone = zoneIndex(for: fraction) else {
-                restMin += dt // unter Zone 0 → Ruhe/Alltag, kein Strain
+                restMin += dt // below zone 0 → rest/everyday, no strain
                 continue
             }
             raw += zoneWeights[zone] * dt
@@ -117,8 +117,8 @@ public enum StrainEngine {
         return (raw, zones, sum / Double(sorted.count), peak, restMin)
     }
 
-    /// Tages-Strain aus Intraday-HR; Fallback über Workout-Durchschnittspuls
-    /// und Schritte, falls keine Samples vorliegen.
+    /// Daily strain from intraday HR; fallback via workout average HR
+    /// and steps if no samples are available.
     public static func dayStrain(
         record: DayRecord,
         restingHR: Double?,
@@ -139,7 +139,7 @@ public enum StrainEngine {
             )
         }
 
-        // Fallback ohne Intraday-Daten
+        // Fallback without intraday data
         var raw = 0.0
         var zones = Array(repeating: 0.0, count: zoneWeights.count)
         for workout in record.workouts {
@@ -161,7 +161,7 @@ public enum StrainEngine {
         )
     }
 
-    /// Strain eines einzelnen Workouts (eigene 0–21-Skala).
+    /// Strain of a single workout (its own 0–21 scale).
     public static func workoutStrain(
         workout: Workout,
         daySamples: [HRSample],

@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Karten
+// MARK: - Cards
 
 struct SectionCard<Content: View>: View {
     let title: String?
@@ -49,8 +49,8 @@ struct RingGauge<Center: View>: View {
     }
 }
 
-/// 270°-Bogen für die Strain-Skala (0–21). `marker` (0–1) zeichnet einen
-/// weißen Ziel-Strich auf den Bogen (wie Whoops Strain Target).
+/// 270° arc for the strain scale (0–21). `marker` (0–1) draws a
+/// white target tick on the arc (like Whoop's Strain Target).
 struct ArcGauge<Center: View>: View {
     var fraction: Double // 0–1
     var color: Color
@@ -75,7 +75,7 @@ struct ArcGauge<Center: View>: View {
                         .fill(Color.white.opacity(0.9))
                         .frame(width: 3, height: lineWidth + 8)
                         .position(x: geo.size.width / 2, y: geo.size.height / 2 - radius)
-                        // 12-Uhr-Position → Startpunkt (135°) + Anteil des 270°-Bogens.
+                        // 12 o'clock position → start point (135°) + share of the 270° arc.
                         .rotationEffect(.degrees(Stats.clamp(marker, 0, 1) * 270 - 135))
                 }
             }
@@ -85,7 +85,7 @@ struct ArcGauge<Center: View>: View {
     }
 }
 
-// MARK: - Kleinteile
+// MARK: - Small parts
 
 struct StatCell: View {
     let label: String
@@ -143,15 +143,15 @@ struct EmptyDataHint: View {
     }
 }
 
-// MARK: - Tages-Übersicht (3 Ringe)
+// MARK: - Daily overview (3 rings)
 
-/// Konzentrische Ringe: außen Recovery, Mitte Schlaf-Performance, innen
-/// Strain relativ zum Tagesziel. Einheitliche Skala: „% von dem, was heute
-/// für dich richtig ist".
+/// Concentric rings: outer recovery, middle sleep performance, inner
+/// strain relative to the daily target. Uniform scale: "% of what is
+/// right for you today".
 struct TripleRingView: View {
     var recovery: Double?      // 0–1
     var sleep: Double?         // 0–1
-    var strainOfTarget: Double? // 0–1 (Strain / Tagesziel, gekappt)
+    var strainOfTarget: Double? // 0–1 (strain / daily target, capped)
     var recoveryColor: Color
     var lineWidth: CGFloat = 10
 
@@ -181,7 +181,7 @@ struct TripleRingView: View {
     }
 }
 
-/// Kompakte „Heute"-Übersicht ganz oben im Dashboard (tippbar → große Ringe).
+/// Compact "Today" overview at the very top of the dashboard (tappable → large rings).
 struct TodayOverviewCard: View {
     @Environment(AppModel.self) private var model
 
@@ -251,9 +251,9 @@ struct TodayOverviewCard: View {
     }
 }
 
-/// Kleines Helferlein: zip für zwei Optionals.
-/// Recovery-Komponenten kommen mit deutschem Label aus der Engine — der
-/// stabile key erlaubt die Übersetzung im UI.
+/// Small helper: zip for two optionals.
+/// Recovery components come out of the engine with a German label — the
+/// stable key allows translation in the UI.
 func recoveryComponentLabel(_ key: String, fallback: String, _ lang: PulseLanguage) -> String {
     guard lang == .en else { return fallback }
     switch key {
@@ -272,8 +272,8 @@ func zip2<A, B>(_ a: A?, _ b: B?) -> (A, B)? {
 
 // MARK: - Journal
 
-/// Faktor-Chips für einen Tag — genutzt von der Dashboard-Karte und dem
-/// Morgen-Popup.
+/// Factor chips for a day — used by the dashboard card and the
+/// morning popup.
 struct JournalFactorGrid: View {
     @Environment(AppModel.self) private var model
     let dayKey: String
@@ -333,7 +333,7 @@ struct JournalCard: View {
     }
 }
 
-/// Morgen-Popup: kurzer Check-in für gestern, sobald neue Daten da sind.
+/// Morning popup: short check-in for yesterday as soon as new data arrives.
 struct JournalPromptSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -373,7 +373,7 @@ struct JournalPromptSheet: View {
     }
 }
 
-// MARK: - Intensitätszonen
+// MARK: - Intensity zones
 
 struct ZoneBarsView: View {
     let zoneMinutes: [Double]
@@ -410,10 +410,10 @@ struct ZoneBarsView: View {
     }
 }
 
-// MARK: - Schlafphasen-Timeline (Hypnogramm)
+// MARK: - Sleep stage timeline (hypnogram)
 
-/// Hypnogramm im „fließenden" Stil: pro Phase eine Zeile mit Label + Dauer,
-/// abgerundete Blöcke, verbunden durch dünne Übergangssäulen.
+/// Hypnogram in a "flowing" style: one row per stage with label + duration,
+/// rounded blocks, connected by thin transition columns.
 struct StagesTimelineView: View {
     let session: SleepSession
 
@@ -432,7 +432,7 @@ struct StagesTimelineView: View {
     var body: some View {
         VStack(spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
-                // Label-Spalte: Phase + Dauer, je Zeile so hoch wie eine Lane.
+                // Label column: stage + duration, each row as tall as a lane.
                 VStack(spacing: 0) {
                     ForEach(lanes, id: \.self) { stage in
                         VStack(alignment: .leading, spacing: 1) {
@@ -483,15 +483,15 @@ struct StagesTimelineView: View {
             let spans = sortedStages
             let cornerRadius: CGFloat = 5
 
-            // 1. Pill-Tracks je Lane (dezenter Hintergrund).
+            // 1. Pill tracks per lane (subtle background).
             for i in lanes.indices {
                 let track = CGRect(x: 0, y: laneCenter(i) - blockHeight / 2, width: size.width, height: blockHeight)
                 context.fill(Path(roundedRect: track, cornerRadius: blockHeight / 2), with: .color(Theme.cardElevated))
             }
 
-            // 2. Übergangssäulen: EINE einheitliche, dezente Farbe. Sie docken
-            //    Kante-an-Kante an und ragen 3 px in die Blöcke, die sie danach
-            //    überdecken → nahtloser Anschluss ohne sichtbaren Versatz.
+            // 2. Transition columns: ONE uniform, subtle color. They dock
+            //    edge to edge and reach 3 px into the blocks, which then
+            //    cover them → seamless join without visible offset.
             for i in 0..<max(0, spans.count - 1) {
                 let from = laneIndex(spans[i].stage)
                 let to = laneIndex(spans[i + 1].stage)
@@ -504,8 +504,8 @@ struct StagesTimelineView: View {
                 context.fill(Path(roundedRect: riser, cornerRadius: 1.25), with: .color(Theme.textSecondary.opacity(0.4)))
             }
 
-            // 3. Blöcke je Phase: FESTER Eckradius → auch kurze Phasen bleiben
-            //    saubere Rechtecke (keine Kreise).
+            // 3. Blocks per stage: FIXED corner radius → even short stages stay
+            //    clean rectangles (no circles).
             for span in spans {
                 let i = laneIndex(span.stage)
                 let x0 = xPos(span.start)
@@ -529,7 +529,7 @@ struct StagesTimelineView: View {
     }
 }
 
-// MARK: - Phasen-Verteilung
+// MARK: - Stage distribution
 
 struct StageDistributionView: View {
     let stageMinutes: [SleepStage: Double]
